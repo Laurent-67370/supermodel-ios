@@ -83,7 +83,13 @@ jobs:
           done
           gh api -X DELETE "repos/$repo/git/refs/tags/supermodel-ios" || true
           gh api "repos/$repo/git/refs" -f ref=refs/tags/supermodel-ios -f sha="$GITHUB_SHA" >/dev/null
-          gh release create supermodel-ios supermodel.ipa --verify-tag --prerelease \
+          # The new tag can take a few seconds to be seen by the releases
+          for i in $(seq 1 30); do
+            gh api "repos/$repo/git/ref/tags/supermodel-ios" >/dev/null 2>&1 &&
+              gh api "repos/$repo/tags" --jq '.[].name' | grep -qx supermodel-ios && break
+            sleep 2
+          done
+          gh release create supermodel-ios supermodel.ipa --target "$GITHUB_SHA" --prerelease \
             --title "Supermodel iOS ${SUPERMODEL_IOS_VERSION} (experimental)" \
             --notes "Experimental, unsigned build of Supermodel (Sega Model 3 emulator) for iPhone and iPad (arm64, iOS 16.3+), from Supermodel ${SUPERMODEL_COMMIT::7} and supermodel-ios ${GITHUB_SHA::7}. Sideload supermodel.ipa with SideStore, AltStore or LiveContainer. Put the games (MAME-style .zip sets) in the app's ROMs folder: Files app, On My iPhone/iPad, Supermodel, ROMs (with LiveContainer, inside its folder). A game controller is needed to play (no touch controls yet). The PowerPC is interpreted (no JIT): Step 1.x games are the most likely to run at full speed."
           test "$(gh release view supermodel-ios --json isDraft --jq .isDraft)" = false
