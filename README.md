@@ -4,14 +4,17 @@ Version iOS de [Supermodel](https://github.com/trzy/supermodel), l'émulateur
 Sega Model 3 de « The Supermodel Team » (GPL 3) : Virtua Fighter 3, Scud
 Race, Daytona USA 2, Sega Rally 2, Star Wars Trilogy, etc.
 
-**État : premier essai, pas encore testé sur un appareil.** L'app se compile
-et le rendu a été vérifié sur un ordinateur, avec la même version d'OpenGL
-qu'iOS (OpenGL ES 3.0). Il reste à savoir si les jeux tournent, et à quelle
-vitesse, sur un vrai iPhone ou iPad. Les **bêta-testeurs** sont les bienvenus :
-[les issues de ce dépôt](https://github.com/Laurent-67370/supermodel-ios/issues).
+**État : premier essai sur un appareil.** Sur un iPad Pro M5 sous iOS 27
+(LiveContainer), un bêta-testeur a vu la version 0.1.1 ouvrir la liste des
+jeux et charger Virtua Fighter 3 : la musique et les sons tournent et le jeu
+répond à la manette, mais l'écran restait noir. La version 0.1.2 corrige
+l'affichage (sur iOS, l'écran n'est pas le framebuffer 0 d'OpenGL) et agrandit
+le menu. Les **bêta-testeurs** sont les bienvenus :
+[issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
-> **In English, for beta testers:** a first, experimental and unsigned iOS
-> build of Supermodel (iOS 16.3+, arm64), not yet tried on a device.
+> **In English, for beta testers:** an experimental and unsigned iOS build of
+> Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27), build 0.1.1 loaded
+> Virtua Fighter 3 with sound but a black screen; 0.1.2 fixes the display.
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -20,7 +23,7 @@ vitesse, sur un vrai iPhone ou iPad. Les **bêta-testeurs** sont les bienvenus :
 > its list. A **game controller** is needed to play (no touch controls yet).
 > Please report your device, iOS version, which games start, how fast they run
 > and `Supermodel.log` (in the same folder) in
-> [this repository's issues](https://github.com/Laurent-67370/supermodel-ios/issues).
+> [issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
 ## Télécharger
 
@@ -49,10 +52,10 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 
 | | |
 |---|---|
-| Jeux Model 3 | à tester (Step 1.0 à 2.1) |
+| Jeux Model 3 | Virtua Fighter 3 se charge, son et manette OK (iPad Pro M5) ; image à confirmer en 0.1.2 |
 | Rendu 3D | OpenGL ES 3.0, en triangles (le rendu en quadrilatères demande des geometry shaders, absents d'iOS) |
-| Son | oui (SDL2) |
-| Manettes | oui (SDL2) |
+| Son | oui (vérifié sur iPad) |
+| Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
 | Jeux Model 1 / Model 2 | non (leur rendu demande des geometry shaders et des texture buffers) |
 | Jeux au pistolet | visée à vérifier (lecture de profondeur absente d'OpenGL ES) |
@@ -74,7 +77,11 @@ de chances de tourner à pleine vitesse sur un appareil récent ; les Step 2.x
     accès aux deux pages de textures par des indices constants), valables aussi
     sur ordinateur ;
   - le contexte OpenGL ES 3.0, le rendu en triangles, la fenêtre à la taille de
-    l'écran, et les dossiers de l'app.
+    l'écran, et les dossiers de l'app ;
+  - l'écran d'iOS : le « framebuffer 0 » que Supermodel utilise pour l'écran
+    est remplacé par celui que SDL crée pour la vue de l'app ;
+  - les erreurs de compilation des shaders écrites dans `Supermodel.log`, et un
+    menu deux fois plus grand sur iOS.
 - [`ios/`](ios) : l'`Info.plist` et la préparation des dossiers dans
   Documents (`Config/`, `ROMs/`, `NVRAM/`, `Saves/`, `Assets/`).
 - [`CMakeLists.txt`](CMakeLists.txt) : la compilation, d'après la liste des
