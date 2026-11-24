@@ -363,7 +363,7 @@ index 0000000..9286d0e
 +  glDrawBuffers(1, &buffer);
 +}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..8f2acc8 100644
+index f241f2e..ec897ab 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
 @@ -1386,6 +1386,9 @@ static float GetDPIScale()
@@ -372,11 +372,11 @@ index f241f2e..8f2acc8 100644
      return (std::max)(1.0f, ddpi / 96.0f);
 +#elif defined(SUPERMODEL_IOS)
 +    // iOS: big enough to be touched
-+    return 2.0f;
++    return 1.5f;
  #else
      return 1.0f;
  #endif
-@@ -1411,9 +1414,15 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1411,15 +1414,25 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      }
  
      // Set OpenGL attributes
@@ -392,7 +392,17 @@ index f241f2e..8f2acc8 100644
  
      // Create window with graphics context
      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-@@ -1464,7 +1473,11 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS);
++#ifdef SUPERMODEL_IOS
++    // iOS: the whole screen, without the status bar
++    window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_FULLSCREEN);
++#endif
+ 
+     // Create SDL window
+     s_uiScale = GetDPIScale();
+@@ -1464,7 +1477,11 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
  
      // Setup Platform/Renderer backends
      ImGui_ImplSDL2_InitForOpenGL(window, glContext);
@@ -404,8 +414,21 @@ index f241f2e..8f2acc8 100644
  
      std::string xmlFile = config["GameXMLFile"].ValueAs<std::string>();
      GameLoader loader(xmlFile);
+@@ -1550,7 +1567,12 @@ exitNoSave:
+ 
+     SDL_GL_DeleteContext(glContext);
+     SDL_DestroyWindow(window);
++#ifdef SUPERMODEL_IOS
++    // iOS: SDL stays up for the game's window (UIKit's video does not come
++    // back from SDL_Quit: the game's window showed nothing, its sound ran)
++#else
+     SDL_Quit();
++#endif
+ 
+     return romFiles;
+ }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..44050ad 100644
+index 505d3a5..47404f5 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -460,7 +483,45 @@ index 505d3a5..44050ad 100644
  
    // Initialize GLEW, allowing us to use features beyond OpenGL 1.2
    err = glewInit();
-@@ -1031,7 +1048,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -386,6 +403,10 @@ static void DestroyGLScreen()
+ 
+ static Result ResizeGLScreen(unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
+ {
++#ifdef SUPERMODEL_IOS
++  // iOS: always the whole screen, without the status bar
++  fullScreen = true;
++#endif
+   // Set full screen mode
+   if (SDL_SetWindowFullscreen(s_window, fullScreen ? SDL_WINDOW_FULLSCREEN : 0) < 0)
+   {
+@@ -883,6 +904,26 @@ void EndFrameVideo()
+ 
+   // Swap the buffers
+   SDL_GL_SwapWindow(s_window);
++
++#ifdef SUPERMODEL_GLES
++  // What the screen is, in the log, after the first frames and later on
++  // (OpenGL ES: iOS's screen is a framebuffer of SDL's)
++  static unsigned s_frames = 0;
++  if (++s_frames == 2 || s_frames == 600)
++  {
++    int ww = 0, wh = 0, dw = 0, dh = 0;
++    GLint bound = 0, viewport[4] = {};
++    SDL_GetWindowSize(s_window, &ww, &wh);
++    SDL_GL_GetDrawableSize(s_window, &dw, &dh);
++    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
++    glGetIntegerv(GL_VIEWPORT, viewport);
++    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
++    const GLenum error = glGetError();
++    InfoLog("OpenGL ES, frame %u: window %dx%d, drawable %dx%d, framebuffer %d (status 0x%x), viewport %d,%d %dx%d, error 0x%x, shown %d",
++      s_frames, ww, wh, dw, dh, (int)bound, (unsigned)status, viewport[0], viewport[1], viewport[2], viewport[3],
++      (unsigned)error, (SDL_GetWindowFlags(s_window) & SDL_WINDOW_SHOWN) ? 1 : 0);
++  }
++#endif
+ }
+ 
+ 
+@@ -1031,7 +1072,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -469,7 +530,7 @@ index 505d3a5..44050ad 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1615,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1639,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -478,7 +539,7 @@ index 505d3a5..44050ad 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +1999,18 @@ static void Help(void)
+@@ -1982,18 +2023,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -500,7 +561,7 @@ index 505d3a5..44050ad 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2133,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2157,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -509,7 +570,7 @@ index 505d3a5..44050ad 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2146,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2170,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -518,7 +579,7 @@ index 505d3a5..44050ad 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2409,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2433,13 @@ int main(int argc, char **argv)
      }
    }
  
