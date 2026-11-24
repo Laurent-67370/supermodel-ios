@@ -94,10 +94,10 @@ index 5daaca0..3cfdfc9 100644
  		blendFactor = min(blendFactor, 0.5);
 diff --git a/Src/OSD/GLES/GL/glew.h b/Src/OSD/GLES/GL/glew.h
 new file mode 100644
-index 0000000..defc60b
+index 0000000..983e569
 --- /dev/null
 +++ b/Src/OSD/GLES/GL/glew.h
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,107 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -174,7 +174,17 @@ index 0000000..defc60b
 +                            const GLchar *message, const void *userParam);
 +
 +static inline void glClearDepth(double depth) { glClearDepthf((GLfloat)depth); }
-+static inline void glDrawBuffer(GLenum buffer) { glDrawBuffers(1, &buffer); }
++
++/* The screen: framebuffer 0 on desktop OpenGL, but on iOS one SDL makes (its
++ * view's), so "0" is that one: noted when the context is made current
++ * (sm_gles_NoteDefaultFramebuffer), then given for 0 */
++extern GLuint sm_gles_defaultFramebuffer;
++void sm_gles_NoteDefaultFramebuffer(void);
++void sm_gles_BindFramebuffer(GLenum target, GLuint framebuffer);
++#define glBindFramebuffer sm_gles_BindFramebuffer
++/* GL_BACK names the screen's only when it is framebuffer 0 */
++void sm_gles_DrawBuffer(GLenum buffer);
++#define glDrawBuffer sm_gles_DrawBuffer
 +static inline void glTexBuffer(GLenum target, GLenum format, GLuint buffer) { (void)target; (void)format; (void)buffer; }
 +static inline void glDebugMessageCallback(GLDEBUGPROC callback, const void *user) { (void)callback; (void)user; }
 +static inline void glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint *ids,
@@ -186,6 +196,9 @@ index 0000000..defc60b
 +/* The shaders, GLSL 4.10, given to OpenGL as GLSL ES 3.00 */
 +void sm_gles_ShaderSource(GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length);
 +#define glShaderSource sm_gles_ShaderSource
++/* A shader that does not compile: its errors in the log (Supermodel.log) */
++void sm_gles_CompileShader(GLuint shader);
++#define glCompileShader sm_gles_CompileShader
 +
 +#ifdef __cplusplus
 +}
@@ -194,10 +207,10 @@ index 0000000..defc60b
 +#endif /* INCLUDED_SUPERMODEL_GLES_GLEW_H */
 diff --git a/Src/OSD/GLES/GLES.cpp b/Src/OSD/GLES/GLES.cpp
 new file mode 100644
-index 0000000..51eacaa
+index 0000000..9286d0e
 --- /dev/null
 +++ b/Src/OSD/GLES/GLES.cpp
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,151 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -228,13 +241,18 @@ index 0000000..51eacaa
 + */
 +
 +#include "GL/glew.h"
++#include "OSD/Logger.h"
 +
 +#include <cstdio>
 +#include <string>
 +
 +#undef glShaderSource
++#undef glCompileShader
++#undef glBindFramebuffer
++#undef glDrawBuffer
 +
 +GLboolean sm_gles_glewExperimental = GL_FALSE;
++GLuint sm_gles_defaultFramebuffer = 0;
 +
 +namespace
 +{
@@ -304,11 +322,61 @@ index 0000000..51eacaa
 +  const GLchar *translated = source.c_str();
 +  glShaderSource(shader, 1, &translated, nullptr);
 +}
++
++extern "C" void sm_gles_CompileShader(GLuint shader)
++{
++  glCompileShader(shader);
++
++  GLint compiled = GL_FALSE;
++  glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
++  if (compiled)
++    return;
++
++  GLint length = 0;
++  glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
++  std::string log(length > 0 ? (size_t)length : 1, '\0');
++  glGetShaderInfoLog(shader, (GLsizei)log.size(), nullptr, &log[0]);
++  ErrorLog("OpenGL ES: a shader does not compile: %s", log.c_str());
++}
++
++extern "C" void sm_gles_NoteDefaultFramebuffer(void)
++{
++  GLint bound = 0;
++  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
++  sm_gles_defaultFramebuffer = (GLuint)bound;
++  InfoLog("OpenGL ES: the screen is framebuffer %d", bound);
++}
++
++extern "C" void sm_gles_BindFramebuffer(GLenum target, GLuint framebuffer)
++{
++  glBindFramebuffer(target, framebuffer ? framebuffer : sm_gles_defaultFramebuffer);
++}
++
++extern "C" void sm_gles_DrawBuffer(GLenum buffer)
++{
++  GLint bound = 0;
++  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &bound);
++  // The screen made by SDL (iOS) is a framebuffer object: its colour is
++  // attachment 0, not GL_BACK
++  if (bound != 0 && buffer == GL_BACK)
++    buffer = GL_COLOR_ATTACHMENT0;
++  glDrawBuffers(1, &buffer);
++}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..90d3dc3 100644
+index f241f2e..8f2acc8 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
-@@ -1411,9 +1411,15 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1386,6 +1386,9 @@ static float GetDPIScale()
+         return 1.0f;
+     }
+     return (std::max)(1.0f, ddpi / 96.0f);
++#elif defined(SUPERMODEL_IOS)
++    // iOS: big enough to be touched
++    return 2.0f;
+ #else
+     return 1.0f;
+ #endif
+@@ -1411,9 +1414,15 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      }
  
      // Set OpenGL attributes
@@ -324,7 +392,7 @@ index f241f2e..90d3dc3 100644
  
      // Create window with graphics context
      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-@@ -1464,7 +1470,11 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1464,7 +1473,11 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
  
      // Setup Platform/Renderer backends
      ImGui_ImplSDL2_InitForOpenGL(window, glContext);
@@ -337,7 +405,7 @@ index f241f2e..90d3dc3 100644
      std::string xmlFile = config["GameXMLFile"].ValueAs<std::string>();
      GameLoader loader(xmlFile);
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..890faa8 100644
+index 505d3a5..44050ad 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -381,7 +449,18 @@ index 505d3a5..890faa8 100644
  
    // Set video mode
    s_window = SDL_CreateWindow(caption.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, *xResPtr, *yResPtr, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | (fullScreen ? SDL_WINDOW_FULLSCREEN : 0));
-@@ -1031,7 +1044,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -337,6 +350,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+ 
+   // Set the context as the current window context
+   SDL_GL_MakeCurrent(s_window, context);
++#ifdef SUPERMODEL_GLES
++  // iOS: the screen is a framebuffer of SDL's, not 0 (Src/OSD/GLES)
++  sm_gles_NoteDefaultFramebuffer();
++#endif
+ 
+   // Initialize GLEW, allowing us to use features beyond OpenGL 1.2
+   err = glewInit();
+@@ -1031,7 +1048,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -390,7 +469,7 @@ index 505d3a5..890faa8 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1611,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1615,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -399,7 +478,7 @@ index 505d3a5..890faa8 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +1995,18 @@ static void Help(void)
+@@ -1982,18 +1999,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -421,7 +500,7 @@ index 505d3a5..890faa8 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2129,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2133,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -430,7 +509,7 @@ index 505d3a5..890faa8 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2142,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2146,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -439,7 +518,7 @@ index 505d3a5..890faa8 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2405,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2409,13 @@ int main(int argc, char **argv)
      }
    }
  
