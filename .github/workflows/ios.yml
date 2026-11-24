@@ -1,0 +1,89 @@
+name: Supermodel iOS (experimental)
+
+# An unsigned .ipa of Supermodel (Sega Model 3) for iPhone and iPad, built on
+# a Mac: Supermodel at the commit of supermodel.version with patches/
+# (OpenGL ES 3.0, the app's folders), SDL2 and SDL2_net built from their
+# sources. Sideloaded (SideStore, AltStore, LiveContainer).
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One at a time: they publish the same release
+concurrency:
+  group: supermodel-ios
+  cancel-in-progress: false
+
+env:
+  SDL_TAG: release-2.32.10
+  SDL_NET_TAG: release-2.2.0
+
+jobs:
+  ipa:
+    # macos-15-intel: GitHub's arm64 Macs are often saturated; the .ipa is
+    # cross-compiled either way
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The version: 0.1.N, N the changes of the app (patches/, ios/, the
+      # build, the commit of Supermodel), not those of the README
+      - name: The version
+        run: |
+          n=$(git rev-list --count HEAD -- patches ios CMakeLists.txt fetch-supermodel.sh supermodel.version)
+          echo "SUPERMODEL_IOS_VERSION=0.1.$n" >> "$GITHUB_ENV"
+          echo "SUPERMODEL_COMMIT=$(cat supermodel.version)" >> "$GITHUB_ENV"
+          echo "version 0.1.$n"
+      - name: Tools
+        run: brew install ninja
+      - name: Supermodel's sources, patched
+        run: ./fetch-supermodel.sh
+      - name: SDL2 and SDL2_net
+        run: |
+          git clone -q --depth 1 -b "$SDL_TAG" https://github.com/libsdl-org/SDL.git external/SDL
+          git clone -q --depth 1 -b "$SDL_NET_TAG" https://github.com/libsdl-org/SDL_net.git external/SDL_net
+      - name: Supermodel for iOS (arm64)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=16.3 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSUPERMODEL_VERSION="ios-${SUPERMODEL_IOS_VERSION}-${SUPERMODEL_COMMIT::7}"
+          set -o pipefail
+          ninja -C build -k 0 2>&1 | tee build.log | grep -E 'error:|FAILED|undefined' | sort -u | head -80 || true
+          test -x build/Supermodel.app/Supermodel
+      - name: The .ipa (unsigned)
+        run: |
+          app=build/Supermodel.app
+          ls "$app" "$app/Config"
+          plutil -p "$app/Info.plist" | head -40
+          lipo -info "$app/Supermodel" | grep -q arm64
+          mkdir Payload && cp -R "$app" Payload/ && zip -qr supermodel.ipa Payload
+          ls -l supermodel.ipa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supermodel-ios
+          path: |
+            supermodel.ipa
+            build.log
+      # Published from main alone: a branch's .ipa is in its artifact
+      - name: Published (release "supermodel-ios")
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo="$GITHUB_REPOSITORY"
+          for id in $(gh api "repos/$repo/releases" --paginate --jq '.[] | select(.tag_name == "supermodel-ios") | .id'); do
+            gh api -X DELETE "repos/$repo/releases/$id"
+          done
+          gh api -X DELETE "repos/$repo/git/refs/tags/supermodel-ios" || true
+          gh api "repos/$repo/git/refs" -f ref=refs/tags/supermodel-ios -f sha="$GITHUB_SHA" >/dev/null
+          gh release create supermodel-ios supermodel.ipa --verify-tag --prerelease \
+            --title "Supermodel iOS ${SUPERMODEL_IOS_VERSION} (experimental)" \
+            --notes "Experimental, unsigned build of Supermodel (Sega Model 3 emulator) for iPhone and iPad (arm64, iOS 16.3+), from Supermodel ${SUPERMODEL_COMMIT::7} and supermodel-ios ${GITHUB_SHA::7}. Sideload supermodel.ipa with SideStore, AltStore or LiveContainer. Put the games (MAME-style .zip sets) in the app's ROMs folder: Files app, On My iPhone/iPad, Supermodel, ROMs (with LiveContainer, inside its folder). A game controller is needed to play (no touch controls yet). The PowerPC is interpreted (no JIT): Step 1.x games are the most likely to run at full speed."
+          test "$(gh release view supermodel-ios --json isDraft --jq .isDraft)" = false
