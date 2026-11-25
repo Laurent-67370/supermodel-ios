@@ -94,10 +94,10 @@ index 5daaca0..3cfdfc9 100644
  		blendFactor = min(blendFactor, 0.5);
 diff --git a/Src/OSD/GLES/GL/glew.h b/Src/OSD/GLES/GL/glew.h
 new file mode 100644
-index 0000000..983e569
+index 0000000..3744250
 --- /dev/null
 +++ b/Src/OSD/GLES/GL/glew.h
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,172 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -200,6 +200,71 @@ index 0000000..983e569
 +void sm_gles_CompileShader(GLuint shader);
 +#define glCompileShader sm_gles_CompileShader
 +
++
++/* A program that does not link: its errors in the log */
++void sm_gles_LinkProgram(GLuint program);
++#define glLinkProgram sm_gles_LinkProgram
++
++/* The OpenGL errors of the first frames, each with the call and the place
++ * that made it, in the log (Supermodel.log): what desktop OpenGL accepts and
++ * OpenGL ES does not shows there. sm_gles_frames_checked frames are checked
++ * (sm_gles_EndFrame counts them), the first errors logged */
++void sm_gles_Check(const char *call, const char *file, int line);
++void sm_gles_EndFrame(void);
++#ifndef SM_GLES_NO_CHECKS
++#define glUniform1i(...) (glUniform1i(__VA_ARGS__), sm_gles_Check("glUniform1i", __FILE__, __LINE__))
++#define glBindVertexArray(...) (glBindVertexArray(__VA_ARGS__), sm_gles_Check("glBindVertexArray", __FILE__, __LINE__))
++#define glBindTexture(...) (glBindTexture(__VA_ARGS__), sm_gles_Check("glBindTexture", __FILE__, __LINE__))
++#define glTexParameteri(...) (glTexParameteri(__VA_ARGS__), sm_gles_Check("glTexParameteri", __FILE__, __LINE__))
++#define glDisable(...) (glDisable(__VA_ARGS__), sm_gles_Check("glDisable", __FILE__, __LINE__))
++#define glEnableVertexAttribArray(...) (glEnableVertexAttribArray(__VA_ARGS__), sm_gles_Check("glEnableVertexAttribArray", __FILE__, __LINE__))
++#define glVertexAttribPointer(...) (glVertexAttribPointer(__VA_ARGS__), sm_gles_Check("glVertexAttribPointer", __FILE__, __LINE__))
++#define glActiveTexture(...) (glActiveTexture(__VA_ARGS__), sm_gles_Check("glActiveTexture", __FILE__, __LINE__))
++#define glBindBuffer(...) (glBindBuffer(__VA_ARGS__), sm_gles_Check("glBindBuffer", __FILE__, __LINE__))
++#define glViewport(...) (glViewport(__VA_ARGS__), sm_gles_Check("glViewport", __FILE__, __LINE__))
++#define glUseProgram(...) (glUseProgram(__VA_ARGS__), sm_gles_Check("glUseProgram", __FILE__, __LINE__))
++#define glEnable(...) (glEnable(__VA_ARGS__), sm_gles_Check("glEnable", __FILE__, __LINE__))
++#define glUniform1f(...) (glUniform1f(__VA_ARGS__), sm_gles_Check("glUniform1f", __FILE__, __LINE__))
++#define glAttachShader(...) (glAttachShader(__VA_ARGS__), sm_gles_Check("glAttachShader", __FILE__, __LINE__))
++#define glTexImage2D(...) (glTexImage2D(__VA_ARGS__), sm_gles_Check("glTexImage2D", __FILE__, __LINE__))
++#define glClear(...) (glClear(__VA_ARGS__), sm_gles_Check("glClear", __FILE__, __LINE__))
++#define glScissor(...) (glScissor(__VA_ARGS__), sm_gles_Check("glScissor", __FILE__, __LINE__))
++#define glPixelStorei(...) (glPixelStorei(__VA_ARGS__), sm_gles_Check("glPixelStorei", __FILE__, __LINE__))
++#define glUniform2f(...) (glUniform2f(__VA_ARGS__), sm_gles_Check("glUniform2f", __FILE__, __LINE__))
++#define glTexSubImage2D(...) (glTexSubImage2D(__VA_ARGS__), sm_gles_Check("glTexSubImage2D", __FILE__, __LINE__))
++#define glDrawArrays(...) (glDrawArrays(__VA_ARGS__), sm_gles_Check("glDrawArrays", __FILE__, __LINE__))
++#define glUniform4f(...) (glUniform4f(__VA_ARGS__), sm_gles_Check("glUniform4f", __FILE__, __LINE__))
++#define glStencilOp(...) (glStencilOp(__VA_ARGS__), sm_gles_Check("glStencilOp", __FILE__, __LINE__))
++#define glStencilMask(...) (glStencilMask(__VA_ARGS__), sm_gles_Check("glStencilMask", __FILE__, __LINE__))
++#define glStencilFunc(...) (glStencilFunc(__VA_ARGS__), sm_gles_Check("glStencilFunc", __FILE__, __LINE__))
++#define glUniformMatrix4fv(...) (glUniformMatrix4fv(__VA_ARGS__), sm_gles_Check("glUniformMatrix4fv", __FILE__, __LINE__))
++#define glUniform3fv(...) (glUniform3fv(__VA_ARGS__), sm_gles_Check("glUniform3fv", __FILE__, __LINE__))
++#define glFramebufferTexture2D(...) (glFramebufferTexture2D(__VA_ARGS__), sm_gles_Check("glFramebufferTexture2D", __FILE__, __LINE__))
++#define glBufferData(...) (glBufferData(__VA_ARGS__), sm_gles_Check("glBufferData", __FILE__, __LINE__))
++#define glReadPixels(...) (glReadPixels(__VA_ARGS__), sm_gles_Check("glReadPixels", __FILE__, __LINE__))
++#define glBlendFunc(...) (glBlendFunc(__VA_ARGS__), sm_gles_Check("glBlendFunc", __FILE__, __LINE__))
++#define glBindRenderbuffer(...) (glBindRenderbuffer(__VA_ARGS__), sm_gles_Check("glBindRenderbuffer", __FILE__, __LINE__))
++#define glUniform1uiv(...) (glUniform1uiv(__VA_ARGS__), sm_gles_Check("glUniform1uiv", __FILE__, __LINE__))
++#define glRenderbufferStorage(...) (glRenderbufferStorage(__VA_ARGS__), sm_gles_Check("glRenderbufferStorage", __FILE__, __LINE__))
++#define glReadBuffer(...) (glReadBuffer(__VA_ARGS__), sm_gles_Check("glReadBuffer", __FILE__, __LINE__))
++#define glFramebufferRenderbuffer(...) (glFramebufferRenderbuffer(__VA_ARGS__), sm_gles_Check("glFramebufferRenderbuffer", __FILE__, __LINE__))
++#define glDrawBuffers(...) (glDrawBuffers(__VA_ARGS__), sm_gles_Check("glDrawBuffers", __FILE__, __LINE__))
++#define glDepthMask(...) (glDepthMask(__VA_ARGS__), sm_gles_Check("glDepthMask", __FILE__, __LINE__))
++#define glBufferSubData(...) (glBufferSubData(__VA_ARGS__), sm_gles_Check("glBufferSubData", __FILE__, __LINE__))
++#define glVertexAttribIPointer(...) (glVertexAttribIPointer(__VA_ARGS__), sm_gles_Check("glVertexAttribIPointer", __FILE__, __LINE__))
++#define glUniform4i(...) (glUniform4i(__VA_ARGS__), sm_gles_Check("glUniform4i", __FILE__, __LINE__))
++#define glUniform4fv(...) (glUniform4fv(__VA_ARGS__), sm_gles_Check("glUniform4fv", __FILE__, __LINE__))
++#define glUniform2iv(...) (glUniform2iv(__VA_ARGS__), sm_gles_Check("glUniform2iv", __FILE__, __LINE__))
++#define glUniform2fv(...) (glUniform2fv(__VA_ARGS__), sm_gles_Check("glUniform2fv", __FILE__, __LINE__))
++#define glDepthFunc(...) (glDepthFunc(__VA_ARGS__), sm_gles_Check("glDepthFunc", __FILE__, __LINE__))
++#define glCopyTexSubImage2D(...) (glCopyTexSubImage2D(__VA_ARGS__), sm_gles_Check("glCopyTexSubImage2D", __FILE__, __LINE__))
++#define glClearStencil(...) (glClearStencil(__VA_ARGS__), sm_gles_Check("glClearStencil", __FILE__, __LINE__))
++#define glBlitFramebuffer(...) (glBlitFramebuffer(__VA_ARGS__), sm_gles_Check("glBlitFramebuffer", __FILE__, __LINE__))
++#define glBlendFuncSeparate(...) (glBlendFuncSeparate(__VA_ARGS__), sm_gles_Check("glBlendFuncSeparate", __FILE__, __LINE__))
++#define glClearColor(...) (glClearColor(__VA_ARGS__), sm_gles_Check("glClearColor", __FILE__, __LINE__))
++#define glGetIntegerv(...) (glGetIntegerv(__VA_ARGS__), sm_gles_Check("glGetIntegerv", __FILE__, __LINE__))
++#endif
++
 +#ifdef __cplusplus
 +}
 +#endif
@@ -207,10 +272,10 @@ index 0000000..983e569
 +#endif /* INCLUDED_SUPERMODEL_GLES_GLEW_H */
 diff --git a/Src/OSD/GLES/GLES.cpp b/Src/OSD/GLES/GLES.cpp
 new file mode 100644
-index 0000000..9286d0e
+index 0000000..695e40b
 --- /dev/null
 +++ b/Src/OSD/GLES/GLES.cpp
-@@ -0,0 +1,151 @@
+@@ -0,0 +1,202 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -240,16 +305,19 @@ index 0000000..9286d0e
 + * "#extension"), and what GLSL ES does not know is taken out.
 + */
 +
++#define SM_GLES_NO_CHECKS
 +#include "GL/glew.h"
 +#include "OSD/Logger.h"
 +
 +#include <cstdio>
++#include <cstring>
 +#include <string>
 +
 +#undef glShaderSource
 +#undef glCompileShader
 +#undef glBindFramebuffer
 +#undef glDrawBuffer
++#undef glLinkProgram
 +
 +GLboolean sm_gles_glewExperimental = GL_FALSE;
 +GLuint sm_gles_defaultFramebuffer = 0;
@@ -362,8 +430,56 @@ index 0000000..9286d0e
 +    buffer = GL_COLOR_ATTACHMENT0;
 +  glDrawBuffers(1, &buffer);
 +}
++
++namespace
++{
++  unsigned s_framesChecked = 0;
++  unsigned s_errorsLogged = 0;
++  const unsigned FRAMES_CHECKED = 300;
++  const unsigned ERRORS_LOGGED = 40;
++
++  const char *Short(const char *file)
++  {
++    const char *src = std::strstr(file, "Src/");
++    return src ? src : file;
++  }
++}
++
++extern "C" void sm_gles_Check(const char *call, const char *file, int line)
++{
++  if (s_framesChecked >= FRAMES_CHECKED || s_errorsLogged >= ERRORS_LOGGED)
++    return;
++  for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError())
++  {
++    if (s_errorsLogged++ < ERRORS_LOGGED)
++      ErrorLog("OpenGL ES: error 0x%x by %s (%s:%d), frame %u", (unsigned)error, call, Short(file), line,
++        s_framesChecked);
++  }
++}
++
++extern "C" void sm_gles_EndFrame(void)
++{
++  if (s_framesChecked < FRAMES_CHECKED)
++    s_framesChecked++;
++}
++
++extern "C" void sm_gles_LinkProgram(GLuint program)
++{
++  glLinkProgram(program);
++
++  GLint linked = GL_FALSE;
++  glGetProgramiv(program, GL_LINK_STATUS, &linked);
++  if (linked)
++    return;
++
++  GLint length = 0;
++  glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
++  std::string log(length > 0 ? (size_t)length : 1, '\0');
++  glGetProgramInfoLog(program, (GLsizei)log.size(), nullptr, &log[0]);
++  ErrorLog("OpenGL ES: a program does not link: %s", log.c_str());
++}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..ec897ab 100644
+index f241f2e..ea56083 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
 @@ -1386,6 +1386,9 @@ static float GetDPIScale()
@@ -397,7 +513,7 @@ index f241f2e..ec897ab 100644
      SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS);
 +#ifdef SUPERMODEL_IOS
 +    // iOS: the whole screen, without the status bar
-+    window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_FULLSCREEN);
++    window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_FULLSCREEN_DESKTOP);
 +#endif
  
      // Create SDL window
@@ -428,7 +544,7 @@ index f241f2e..ec897ab 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..47404f5 100644
+index 505d3a5..f44d6f0 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -452,7 +568,22 @@ index 505d3a5..47404f5 100644
  
    // If required, fix the aspect ratio of the resolution that the user passed to match Model 3 ratio
    float xResF = float(*xResPtr);
-@@ -305,11 +310,19 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+@@ -273,6 +278,14 @@ static void SetFullScreenRefreshRate()
+  * NOTE: keepAspectRatio should always be true. It has not yet been tested with
+  * the wide screen hack.
+  */
++// iOS: full screen is the screen as it is (SDL_WINDOW_FULLSCREEN asks a
++// display mode iOS refuses)
++#ifdef SUPERMODEL_IOS
++#define SM_FULLSCREEN SDL_WINDOW_FULLSCREEN_DESKTOP
++#else
++#define SM_FULLSCREEN SDL_WINDOW_FULLSCREEN
++#endif
++
+ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool focusWindow, unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
+ {
+   GLenum err;
+@@ -305,14 +318,22 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
    }
    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
  
@@ -471,8 +602,12 @@ index 505d3a5..47404f5 100644
 +#endif
  
    // Set video mode
-   s_window = SDL_CreateWindow(caption.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, *xResPtr, *yResPtr, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | (fullScreen ? SDL_WINDOW_FULLSCREEN : 0));
-@@ -337,6 +350,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+-  s_window = SDL_CreateWindow(caption.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, *xResPtr, *yResPtr, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | (fullScreen ? SDL_WINDOW_FULLSCREEN : 0));
++  s_window = SDL_CreateWindow(caption.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, *xResPtr, *yResPtr, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | (fullScreen ? SM_FULLSCREEN : 0));
+   if (nullptr == s_window)
+   {
+     ErrorLog("Unable to create an OpenGL display: %s\n", SDL_GetError());
+@@ -337,6 +358,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
  
    // Set the context as the current window context
    SDL_GL_MakeCurrent(s_window, context);
@@ -483,23 +618,43 @@ index 505d3a5..47404f5 100644
  
    // Initialize GLEW, allowing us to use features beyond OpenGL 1.2
    err = glewInit();
-@@ -386,6 +403,10 @@ static void DestroyGLScreen()
+@@ -354,7 +379,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+ 
+   // print some basic GPU info
+   GLint profile = 0;
++#ifndef SUPERMODEL_GLES
++  // OpenGL ES has no profiles (GL_INVALID_ENUM)
+   glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile);
++#endif
+ 
+   printf("GPU info: %s ", glGetString(GL_VERSION));
+ 
+@@ -386,8 +414,17 @@ static void DestroyGLScreen()
  
  static Result ResizeGLScreen(unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
  {
+-  // Set full screen mode
 +#ifdef SUPERMODEL_IOS
 +  // iOS: always the whole screen, without the status bar
 +  fullScreen = true;
 +#endif
-   // Set full screen mode
++  // Set full screen mode (iOS: the screen as it is, SDL_WINDOW_FULLSCREEN
++  // asks a display mode iOS refuses: "Screen orientation does not match")
++#ifdef SUPERMODEL_IOS
++  if (SDL_SetWindowFullscreen(s_window, fullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) < 0)
++#else
    if (SDL_SetWindowFullscreen(s_window, fullScreen ? SDL_WINDOW_FULLSCREEN : 0) < 0)
++#endif
    {
-@@ -883,6 +904,26 @@ void EndFrameVideo()
+     ErrorLog("Unable to enter %s mode: %s\n", fullScreen ? "fullscreen" : "windowed", SDL_GetError());
+     return Result::FAIL;
+@@ -883,6 +920,27 @@ void EndFrameVideo()
  
    // Swap the buffers
    SDL_GL_SwapWindow(s_window);
 +
 +#ifdef SUPERMODEL_GLES
++  sm_gles_EndFrame();
 +  // What the screen is, in the log, after the first frames and later on
 +  // (OpenGL ES: iOS's screen is a framebuffer of SDL's)
 +  static unsigned s_frames = 0;
@@ -521,7 +676,7 @@ index 505d3a5..47404f5 100644
  }
  
  
-@@ -1031,7 +1072,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1031,7 +1089,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -530,7 +685,7 @@ index 505d3a5..47404f5 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1639,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1656,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -539,7 +694,7 @@ index 505d3a5..47404f5 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2023,18 @@ static void Help(void)
+@@ -1982,18 +2040,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -561,7 +716,7 @@ index 505d3a5..47404f5 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2157,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2174,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -570,7 +725,7 @@ index 505d3a5..47404f5 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2170,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2187,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -579,7 +734,7 @@ index 505d3a5..47404f5 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2433,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2450,13 @@ int main(int argc, char **argv)
      }
    }
  
