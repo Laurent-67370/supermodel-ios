@@ -8,8 +8,9 @@
  * Assets/ from the APK: Supermodel/ of the phone's storage, or the app's own
  * folder; the games are put in its ROMs folder.
  *
- * The menu (the list of the games) scaled to the screen, as on an iPad
- * (1.5 there): the screen's height over 720 pixels.
+ * The menu (the list of the games) scaled as Android scales its own apps:
+ * the screen's density over 160 dpi (an ImGui pixel is an Android dp), at
+ * most the screen's height over 400 pixels, so that it still fits.
  *
  * This file is part of supermodel-ios, under the GNU General Public License
  * version 3 or later, as Supermodel.
@@ -47,8 +48,13 @@ void SupermodelMobilePrepare()
 
 float SupermodelMobileUIScale()
 {
+	float density = 0.0f, scale = 3.0f;
 	SDL_Rect screen;
-	if (SDL_GetDisplayBounds(0, &screen) != 0)
-		return 2.0f;
-	return std::max(1.0f, float(std::min(screen.w, screen.h)) / 720.0f);
+
+	if (SDL_GetDisplayDPI(0, &density, nullptr, nullptr) == 0 && density > 0.0f)
+		scale = density / 160.0f;
+	if (SDL_GetDisplayBounds(0, &screen) == 0)
+		scale = std::min(scale, float(std::min(screen.w, screen.h)) / 400.0f);
+	__android_log_print(ANDROID_LOG_INFO, "Supermodel", "menu scale %.2f (density %.0f dpi)", scale, density);
+	return std::max(1.0f, scale);
 }
