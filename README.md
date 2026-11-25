@@ -72,7 +72,7 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 | Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
 | Jeux Model 1 / Model 2 | **Virtua Racing (Model 1) et Sonic Championship (Model 2) : parfaits** (0.1.7) ; en triangles (sans geometry shaders) |
-| Jeux au pistolet | à essayer à la souris (axes de visée réglés sur la souris par défaut ; viseur : **Crosshairs** dans l'onglet Video) ; le test de « ligne de mire » du Model 3 lit la profondeur, ce qu'OpenGL ES ne permet pas |
+| Jeux au pistolet | **à la souris : The House of the Dead (Model 2) marche** ; depuis la 0.1.9, en jeu, le pointeur de l'iPad est caché (le viseur du jeu le remplace : **Crosshairs** dans l'onglet Video) et retenu dans l'app, le Dock et le Centre de contrôle ne s'ouvrent plus au bord de l'écran ; le test de « ligne de mire » du Model 3 lit la profondeur, ce qu'OpenGL ES ne permet pas |
 | Réseau entre bornes | non testé |
 
 **Vitesse :** le processeur PowerPC du Model 3 est émulé par un interpréteur,
