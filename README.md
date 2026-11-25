@@ -4,25 +4,24 @@ Version iOS de [Supermodel](https://github.com/trzy/supermodel), l'émulateur
 Sega Model 3 de « The Supermodel Team » (GPL 3) : Virtua Fighter 3, Scud
 Race, Daytona USA 2, Sega Rally 2, Star Wars Trilogy, etc.
 
-**État : Model 3 et Model 1 marchent sur iPad.** Sur un iPad Pro M5 sous iOS 27
-(LiveContainer, sans JIT), un bêta-testeur joue **Virtua Fighter 3** à pleine
-vitesse (57,5 images/s, la fréquence de la borne) et **Virtua Racing** (Model 1)
-« parfaitement », à la manette. Il a fallu trois corrections propres à iOS
-pour l'image : l'écran est un framebuffer de SDL (0.1.2), SDL n'est plus arrêté
-entre la liste et le jeu (0.1.3), et le *renderbuffer* de l'écran est remis
-actif avant chaque image (0.1.5). Le rendu Model 1/2 est passé à OpenGL ES 3.0
-en 0.1.6. Dans **Sonic Championship** (Model 2), la 2D s'affichait mais pas la
-3D : le Model 2 la préparait en quadrilatères, que le rendu ne dessine pas sans
-geometry shaders ; la **0.1.7** lui fait préparer des triangles, et enregistre
-la mémoire des jeux (réglages du menu de service, scores) quand l'app passe en
-arrière-plan. Les **bêta-testeurs** sont les bienvenus :
+**État : Model 3, Model 2 et Model 1 marchent sur iPad.** Sur un iPad Pro M5
+sous iOS 27 (LiveContainer, sans JIT), un bêta-testeur joue **Virtua Fighter 3**
+à pleine vitesse (57,5 images/s, la fréquence de la borne), **Virtua Racing**
+(Model 1) et **Sonic Championship** (Model 2) « parfaitement », à la manette ;
+les jeux de course gardent leurs réglages du menu de service d'une partie à
+l'autre. Les corrections propres à iOS : l'écran est un framebuffer de SDL
+(0.1.2), SDL n'est plus arrêté entre la liste et le jeu (0.1.3), le
+*renderbuffer* de l'écran est remis actif avant chaque image (0.1.5), le rendu
+Model 1/2 est passé à OpenGL ES 3.0 (0.1.6), le Model 2 prépare des triangles
+et la mémoire des jeux est enregistrée quand l'app passe en arrière-plan
+(0.1.7). Les **bêta-testeurs** sont les bienvenus :
 [issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
 > **In English, for beta testers:** an experimental and unsigned iOS build of
 > Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27, no JIT), Virtua
-> Fighter 3 runs at full speed (57.5 fps) and Virtua Racing (Model 1) runs
-> perfectly. Model 2's 3D was missing; 0.1.7 fixes it and keeps game settings
-> (NVRAM) when the app is closed, to be tried.
+> Fighter 3 runs at full speed (57.5 fps); Virtua Racing (Model 1) and Sonic
+> Championship (Model 2) run perfectly, and games keep their settings (NVRAM)
+> when the app is closed (build 0.1.7).
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -66,13 +65,14 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 
 | | |
 |---|---|
-| Jeux Model 3 | **Virtua Fighter 3 : parfait, 57,5 images/s** (pleine vitesse ; iPad Pro M5, 0.1.6, sans JIT) |
+| Jeux Model 3 | **Virtua Fighter 3 : parfait, 57,5 images/s** (pleine vitesse ; iPad Pro M5, sans JIT) |
+| Réglages des jeux (NVRAM) | gardés : enregistrés quand l'app passe en arrière-plan (0.1.7, vérifié) |
 | Rendu 3D | OpenGL ES 3.0, en triangles (le rendu en quadrilatères demande des geometry shaders, absents d'iOS) |
 | Son | oui (vérifié sur iPad) |
 | Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
-| Jeux Model 1 / Model 2 | **Virtua Racing (Model 1) : parfait** (0.1.6) ; Sonic Championship (Model 2) : la 2D sans la 3D en 0.1.6, corrigé en 0.1.7 (à essayer) |
-| Jeux au pistolet | visée à vérifier (lecture de profondeur absente d'OpenGL ES) |
+| Jeux Model 1 / Model 2 | **Virtua Racing (Model 1) et Sonic Championship (Model 2) : parfaits** (0.1.7) ; en triangles (sans geometry shaders) |
+| Jeux au pistolet | à essayer à la souris (axes de visée réglés sur la souris par défaut ; viseur : **Crosshairs** dans l'onglet Video) ; le test de « ligne de mire » du Model 3 lit la profondeur, ce qu'OpenGL ES ne permet pas |
 | Réseau entre bornes | non testé |
 
 **Vitesse :** le processeur PowerPC du Model 3 est émulé par un interpréteur,
