@@ -181,6 +181,24 @@ index 5daaca0..3cfdfc9 100644
  
  		blendFactor = -lod * exp2(-microTextureMinLOD) * 0.5;
  		blendFactor = min(blendFactor, 0.5);
+diff --git a/Src/Model2/Model2.cpp b/Src/Model2/Model2.cpp
+index a1ecdf1..c996cb0 100644
+--- a/Src/Model2/Model2.cpp
++++ b/Src/Model2/Model2.cpp
+@@ -3535,7 +3535,13 @@ Result CModel2::Init(const Game &game, const ROMSet &rom_set)
+   m_videoMemory = mem;
+   m_softwareRender = m_config["Model2SoftwareRender"].ValueAsDefault<bool>(false) || getenv("SUPERMODEL_MODEL2_SOFTWARE") != nullptr;
+   // quads or triangles, as the Model 3 renderer
++#ifdef SUPERMODEL_GLES
++  // OpenGL ES 3.0 has no geometry shaders: the renderer draws triangles only
++  // (quads without them would draw nothing)
++  m_video3d.SetGPUQuads(false);
++#else
+   m_video3d.SetGPUQuads(m_config["QuadRendering"].ValueAsDefault<bool>(true));
++#endif
+ 
+   if (m_original && rom_set.get_rom("sound_program").size)
+   {
 diff --git a/Src/OSD/GLES/GL/glew.h b/Src/OSD/GLES/GL/glew.h
 new file mode 100644
 index 0000000..230b716
@@ -744,7 +762,7 @@ index f241f2e..ea56083 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..be0d009 100644
+index 505d3a5..b276725 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -848,7 +866,29 @@ index 505d3a5..be0d009 100644
    {
      ErrorLog("Unable to enter %s mode: %s\n", fullScreen ? "fullscreen" : "windowed", SDL_GetError());
      return Result::FAIL;
-@@ -882,7 +919,32 @@ void EndFrameVideo()
+@@ -810,6 +847,21 @@ static void SaveNVRAM(IEmulator *Emu)
+   InfoLog("Saved NVRAM to '%s'.", file_path.c_str());
+ }
+ 
++#ifdef SUPERMODEL_IOS
++// iOS: an app is closed from the app switcher, never quit: the NVRAM (the
++// settings made in a game's test menu, the high scores) is saved each time
++// the app goes to the background (SDL calls this on the main thread, from
++// SDL_PumpEvents)
++static IEmulator *s_backgroundNVRAM = nullptr;
++
++static int SDLCALL SaveNVRAMInBackground(void *, SDL_Event *event)
++{
++  if (s_backgroundNVRAM && (event->type == SDL_APP_WILLENTERBACKGROUND || event->type == SDL_APP_TERMINATING))
++    SaveNVRAM(s_backgroundNVRAM);
++  return 1;
++}
++#endif
++
+ static void LoadNVRAM(IEmulator *Emu)
+ {
+   CBlockFile  NVRAM;
+@@ -882,7 +934,32 @@ void EndFrameVideo()
      s_crosshair->Update(currentInputs, videoInputs, xOffset, yOffset, xRes, yRes);
  
    // Swap the buffers
@@ -881,7 +921,18 @@ index 505d3a5..be0d009 100644
  }
  
  
-@@ -1031,7 +1093,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -974,6 +1051,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+ 
+   // Load NVRAM
+   LoadNVRAM(Emu);
++#ifdef SUPERMODEL_IOS
++  s_backgroundNVRAM = Emu;
++  SDL_AddEventWatch(SaveNVRAMInBackground, nullptr);
++#endif
+ 
+   // Set the video mode
+   char baseTitleStr[128];
+@@ -1031,7 +1112,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -890,7 +941,7 @@ index 505d3a5..be0d009 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1408,6 +1470,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1408,6 +1489,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
          double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
          snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
          SDL_SetWindowTitle(s_window, titleStr);
@@ -903,7 +954,18 @@ index 505d3a5..be0d009 100644
          prevFPSTicks = currentFPSTicks;   // reset tick count
          fpsFramesElapsed = 0;             // reset frame count
        }
-@@ -1598,7 +1666,7 @@ Util::Config::Node DefaultConfig()
+@@ -1435,6 +1522,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+ #endif // SUPERMODEL_DEBUGGER
+ 
+   // Save NVRAM
++#ifdef SUPERMODEL_IOS
++  SDL_DelEventWatch(SaveNVRAMInBackground, nullptr);
++  s_backgroundNVRAM = nullptr;
++#endif
+   SaveNVRAM(Emu);
+ 
+   // Close audio
+@@ -1598,7 +1689,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -912,7 +974,7 @@ index 505d3a5..be0d009 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2050,18 @@ static void Help(void)
+@@ -1982,18 +2073,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -934,7 +996,7 @@ index 505d3a5..be0d009 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2184,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2207,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -943,7 +1005,7 @@ index 505d3a5..be0d009 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2197,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2220,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -952,7 +1014,7 @@ index 505d3a5..be0d009 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2460,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2483,13 @@ int main(int argc, char **argv)
      }
    }
  

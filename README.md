@@ -4,22 +4,25 @@ Version iOS de [Supermodel](https://github.com/trzy/supermodel), l'émulateur
 Sega Model 3 de « The Supermodel Team » (GPL 3) : Virtua Fighter 3, Scud
 Race, Daytona USA 2, Sega Rally 2, Star Wars Trilogy, etc.
 
-**État : le Model 3 marche sur iPad.** Sur un iPad Pro M5 sous iOS 27
-(LiveContainer, sans JIT), un bêta-testeur joue **Virtua Fighter 3** « parfaitement »,
-à environ 60 images/s, à la manette (commandes modifiables dans le menu). Il
-a fallu trois corrections propres à iOS : l'écran est un framebuffer de SDL
-(0.1.2), SDL n'est plus arrêté entre la liste et le jeu (0.1.3), et le
-*renderbuffer* de l'écran est remis actif avant chaque image (0.1.5 : SDL, sous
-iOS, présente celui qui est actif). Les jeux **Model 1 et Model 2** (Virtua
-Racing, Sonic Championship) restaient noirs : leur rendu utilise des *texture
-buffers* et des pixels BGRA qu'OpenGL ES 3.0 n'a pas ; la **0.1.6** les
-remplace (à essayer). Les **bêta-testeurs** sont les bienvenus :
+**État : Model 3 et Model 1 marchent sur iPad.** Sur un iPad Pro M5 sous iOS 27
+(LiveContainer, sans JIT), un bêta-testeur joue **Virtua Fighter 3** à pleine
+vitesse (57,5 images/s, la fréquence de la borne) et **Virtua Racing** (Model 1)
+« parfaitement », à la manette. Il a fallu trois corrections propres à iOS
+pour l'image : l'écran est un framebuffer de SDL (0.1.2), SDL n'est plus arrêté
+entre la liste et le jeu (0.1.3), et le *renderbuffer* de l'écran est remis
+actif avant chaque image (0.1.5). Le rendu Model 1/2 est passé à OpenGL ES 3.0
+en 0.1.6. Dans **Sonic Championship** (Model 2), la 2D s'affichait mais pas la
+3D : le Model 2 la préparait en quadrilatères, que le rendu ne dessine pas sans
+geometry shaders ; la **0.1.7** lui fait préparer des triangles, et enregistre
+la mémoire des jeux (réglages du menu de service, scores) quand l'app passe en
+arrière-plan. Les **bêta-testeurs** sont les bienvenus :
 [issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
 > **In English, for beta testers:** an experimental and unsigned iOS build of
 > Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27, no JIT), Virtua
-> Fighter 3 runs perfectly at about 60 fps (build 0.1.5). Model 1 and Model 2
-> games were black; 0.1.6 ports their renderer to OpenGL ES 3.0, to be tried.
+> Fighter 3 runs at full speed (57.5 fps) and Virtua Racing (Model 1) runs
+> perfectly. Model 2's 3D was missing; 0.1.7 fixes it and keeps game settings
+> (NVRAM) when the app is closed, to be tried.
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -48,7 +51,9 @@ l'installe soi-même avec SideStore, AltStore ou LiveContainer.
 3. Relancer l'app : la liste montre les jeux trouvés ; toucher un jeu, puis
    **Load game**.
 4. Jouer avec une **manette** (Xbox, PlayStation, MFi) : il n'y a pas encore de
-   commandes tactiles. Pour revenir à la liste, fermer l'app et la relancer.
+   commandes tactiles. Pour revenir à la liste, fermer l'app et la relancer
+   (depuis la 0.1.7, les réglages faits dans le menu de service du jeu sont
+   gardés).
    Pour remplir tout l'écran, cocher **Stretch** dans l'onglet **Video** du
    menu (l'image est alors un peu étirée) ; avec **ShowFrameRate**, le nombre
    d'images par seconde est écrit dans `Supermodel.log` toutes les 5 secondes
@@ -61,12 +66,12 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 
 | | |
 |---|---|
-| Jeux Model 3 | **Virtua Fighter 3 : parfait, ~60 images/s** (iPad Pro M5, 0.1.5, sans JIT) |
+| Jeux Model 3 | **Virtua Fighter 3 : parfait, 57,5 images/s** (pleine vitesse ; iPad Pro M5, 0.1.6, sans JIT) |
 | Rendu 3D | OpenGL ES 3.0, en triangles (le rendu en quadrilatères demande des geometry shaders, absents d'iOS) |
 | Son | oui (vérifié sur iPad) |
 | Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
-| Jeux Model 1 / Model 2 | noirs jusqu'à la 0.1.5 ; la 0.1.6 remplace leurs *texture buffers* et pixels BGRA (en triangles, sans geometry shaders) : à essayer |
+| Jeux Model 1 / Model 2 | **Virtua Racing (Model 1) : parfait** (0.1.6) ; Sonic Championship (Model 2) : la 2D sans la 3D en 0.1.6, corrigé en 0.1.7 (à essayer) |
 | Jeux au pistolet | visée à vérifier (lecture de profondeur absente d'OpenGL ES) |
 | Réseau entre bornes | non testé |
 
@@ -103,7 +108,11 @@ de chances de tourner à pleine vitesse sur un appareil récent ; les Step 2.x
     d'entiers de 256 de large (lues ainsi par les shaders traduits), ses pixels
     BGRA sont envoyés en RGBA avec rouge et bleu échangés à la lecture
     (*swizzle*), `findMSB` (GLSL ES 3.10) est réécrit, et ses quadrilatères
-    (geometry shaders) laissent la place aux triangles.
+    (geometry shaders) laissent la place aux triangles, que le Model 2 prépare
+    alors lui-même ;
+  - sur iOS, la NVRAM (réglages du menu de service, scores) est enregistrée
+    chaque fois que l'app passe en arrière-plan : une app iOS est fermée depuis
+    le sélecteur d'apps, jamais quittée.
 - [`ios/`](ios) : l'`Info.plist` et la préparation des dossiers dans
   Documents (`Config/`, `ROMs/`, `NVRAM/`, `Saves/`, `Assets/`).
 - [`CMakeLists.txt`](CMakeLists.txt) : la compilation, d'après la liste des
