@@ -762,7 +762,7 @@ index f241f2e..5e043a1 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..7c1a8f8 100644
+index 505d3a5..e0a26a7 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -786,7 +786,7 @@ index 505d3a5..7c1a8f8 100644
  
    // If required, fix the aspect ratio of the resolution that the user passed to match Model 3 ratio
    float xResF = float(*xResPtr);
-@@ -273,6 +278,14 @@ static void SetFullScreenRefreshRate()
+@@ -273,9 +278,23 @@ static void SetFullScreenRefreshRate()
   * NOTE: keepAspectRatio should always be true. It has not yet been tested with
   * the wide screen hack.
   */
@@ -801,7 +801,16 @@ index 505d3a5..7c1a8f8 100644
  static Result CreateGLScreen(bool coreContext, const std::string &caption, bool focusWindow, unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
  {
    GLenum err;
-@@ -305,14 +318,22 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
++#ifdef SUPERMODEL_MOBILE
++  // iOS, Android: the game's window is the whole screen, whatever the
++  // settings (Android sizes a window that is not full screen as asked,
++  // 496x384, and the game showed in a corner)
++  fullScreen = true;
++#endif
+ 
+   // Call only once per program session (this is because of issues with
+   // DirectInput when the window is destroyed and a new one created). Use
+@@ -305,14 +324,22 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
    }
    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,1);
  
@@ -825,7 +834,7 @@ index 505d3a5..7c1a8f8 100644
    if (nullptr == s_window)
    {
      ErrorLog("Unable to create an OpenGL display: %s\n", SDL_GetError());
-@@ -337,6 +358,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+@@ -337,6 +364,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
  
    // Set the context as the current window context
    SDL_GL_MakeCurrent(s_window, context);
@@ -836,7 +845,7 @@ index 505d3a5..7c1a8f8 100644
  
    // Initialize GLEW, allowing us to use features beyond OpenGL 1.2
    err = glewInit();
-@@ -354,7 +379,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
+@@ -354,7 +385,10 @@ static Result CreateGLScreen(bool coreContext, const std::string &caption, bool
  
    // print some basic GPU info
    GLint profile = 0;
@@ -847,7 +856,7 @@ index 505d3a5..7c1a8f8 100644
  
    printf("GPU info: %s ", glGetString(GL_VERSION));
  
-@@ -386,8 +414,17 @@ static void DestroyGLScreen()
+@@ -386,8 +420,17 @@ static void DestroyGLScreen()
  
  static Result ResizeGLScreen(unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
  {
@@ -866,7 +875,7 @@ index 505d3a5..7c1a8f8 100644
    {
      ErrorLog("Unable to enter %s mode: %s\n", fullScreen ? "fullscreen" : "windowed", SDL_GetError());
      return Result::FAIL;
-@@ -810,6 +847,21 @@ static void SaveNVRAM(IEmulator *Emu)
+@@ -810,6 +853,21 @@ static void SaveNVRAM(IEmulator *Emu)
    InfoLog("Saved NVRAM to '%s'.", file_path.c_str());
  }
  
@@ -888,7 +897,7 @@ index 505d3a5..7c1a8f8 100644
  static void LoadNVRAM(IEmulator *Emu)
  {
    CBlockFile  NVRAM;
-@@ -882,7 +934,32 @@ void EndFrameVideo()
+@@ -882,7 +940,32 @@ void EndFrameVideo()
      s_crosshair->Update(currentInputs, videoInputs, xOffset, yOffset, xRes, yRes);
  
    // Swap the buffers
@@ -921,7 +930,7 @@ index 505d3a5..7c1a8f8 100644
  }
  
  
-@@ -974,6 +1051,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -974,6 +1057,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
  
    // Load NVRAM
    LoadNVRAM(Emu);
@@ -932,7 +941,7 @@ index 505d3a5..7c1a8f8 100644
  
    // Set the video mode
    char baseTitleStr[128];
-@@ -1014,6 +1095,14 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1014,6 +1101,14 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
  
    // Hide mouse if fullscreen, enable crosshairs for gun games
    Inputs->GetInputSystem()->SetMouseVisibility(!s_runtime_config["FullScreen"].ValueAs<bool>());
@@ -947,7 +956,7 @@ index 505d3a5..7c1a8f8 100644
    gameHasLightguns = !!(game.inputs & (Game::INPUT_GUN1|Game::INPUT_GUN2));
    gameHasLightguns |= game.name == "lostwsga";
    currentInputs = game.inputs;
-@@ -1031,7 +1120,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1031,7 +1126,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -956,7 +965,7 @@ index 505d3a5..7c1a8f8 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1239,6 +1328,9 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1239,6 +1334,9 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
        Emu->AttachRenderers(Render2D, Render3D, superAA);
  
        Inputs->GetInputSystem()->SetMouseVisibility(!s_runtime_config["FullScreen"].ValueAs<bool>());
@@ -966,7 +975,7 @@ index 505d3a5..7c1a8f8 100644
      }
      else if (Inputs->uiSaveState->Pressed())
      {
-@@ -1408,6 +1500,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1408,6 +1506,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
          double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
          snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
          SDL_SetWindowTitle(s_window, titleStr);
@@ -979,7 +988,7 @@ index 505d3a5..7c1a8f8 100644
          prevFPSTicks = currentFPSTicks;   // reset tick count
          fpsFramesElapsed = 0;             // reset frame count
        }
-@@ -1435,6 +1533,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1435,6 +1539,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
  #endif // SUPERMODEL_DEBUGGER
  
    // Save NVRAM
@@ -990,7 +999,7 @@ index 505d3a5..7c1a8f8 100644
    SaveNVRAM(Emu);
  
    // Close audio
-@@ -1598,7 +1700,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1706,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -999,7 +1008,7 @@ index 505d3a5..7c1a8f8 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2084,18 @@ static void Help(void)
+@@ -1982,18 +2090,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -1021,7 +1030,7 @@ index 505d3a5..7c1a8f8 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2218,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2224,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -1030,7 +1039,7 @@ index 505d3a5..7c1a8f8 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2231,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2237,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -1039,7 +1048,7 @@ index 505d3a5..7c1a8f8 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2494,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2500,13 @@ int main(int argc, char **argv)
      }
    }
  
