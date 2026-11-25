@@ -115,6 +115,10 @@ de chances de tourner à pleine vitesse sur un appareil récent ; les Step 2.x
     le sélecteur d'apps, jamais quittée.
 - [`ios/`](ios) : l'`Info.plist` et la préparation des dossiers dans
   Documents (`Config/`, `ROMs/`, `NVRAM/`, `Saves/`, `Assets/`).
+- [`android/`](android) : la même préparation pour Android ; le patch et la
+  compilation sont communs avec la version Android,
+  [supermodel-android](https://github.com/Laurent-67370/supermodel-android),
+  qui les reprend d'ici.
 - [`CMakeLists.txt`](CMakeLists.txt) : la compilation, d'après la liste des
   fichiers du Makefile de Supermodel ; elle marche aussi sous Linux (OpenGL ES
   de Mesa) pour essayer sans appareil.

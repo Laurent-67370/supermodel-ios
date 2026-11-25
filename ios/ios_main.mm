@@ -12,6 +12,9 @@
  * version brings its new games; Supermodel.ini, the user's settings, is
  * copied only when there is none.
  *
+ * The menu (the list of the games) 1.5 times as big as on a computer, big
+ * enough to be touched (Gui.cpp of the patch).
+ *
  * This file is part of supermodel-ios, under the GNU General Public License
  * version 3 or later, as Supermodel.
  */
@@ -45,7 +48,7 @@ namespace
 	}
 }
 
-void SupermodelIOSPrepare()
+void SupermodelMobilePrepare()
 {
 	@autoreleasepool
 	{
@@ -73,4 +76,9 @@ void SupermodelIOSPrepare()
 		chdir(documents.fileSystemRepresentation);
 		NSLog(@"Supermodel: folder %@", documents);
 	}
+}
+
+float SupermodelMobileUIScale()
+{
+	return 1.5f;
 }
