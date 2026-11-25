@@ -94,10 +94,10 @@ index 5daaca0..3cfdfc9 100644
  		blendFactor = min(blendFactor, 0.5);
 diff --git a/Src/OSD/GLES/GL/glew.h b/Src/OSD/GLES/GL/glew.h
 new file mode 100644
-index 0000000..3744250
+index 0000000..5c87ad2
 --- /dev/null
 +++ b/Src/OSD/GLES/GL/glew.h
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,176 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -180,6 +180,10 @@ index 0000000..3744250
 + * (sm_gles_NoteDefaultFramebuffer), then given for 0 */
 +extern GLuint sm_gles_defaultFramebuffer;
 +void sm_gles_NoteDefaultFramebuffer(void);
++/* Before the frame is shown (SDL_GL_SwapWindow): on iOS SDL presents the
++ * renderbuffer bound, which must be the screen's colour, not the renderers'
++ * (New3D binds its depth's) */
++void sm_gles_BeforeSwap(void);
 +void sm_gles_BindFramebuffer(GLenum target, GLuint framebuffer);
 +#define glBindFramebuffer sm_gles_BindFramebuffer
 +/* GL_BACK names the screen's only when it is framebuffer 0 */
@@ -272,10 +276,10 @@ index 0000000..3744250
 +#endif /* INCLUDED_SUPERMODEL_GLES_GLEW_H */
 diff --git a/Src/OSD/GLES/GLES.cpp b/Src/OSD/GLES/GLES.cpp
 new file mode 100644
-index 0000000..695e40b
+index 0000000..b55030d
 --- /dev/null
 +++ b/Src/OSD/GLES/GLES.cpp
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,220 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -321,6 +325,7 @@ index 0000000..695e40b
 +
 +GLboolean sm_gles_glewExperimental = GL_FALSE;
 +GLuint sm_gles_defaultFramebuffer = 0;
++static GLuint s_screenColour = 0;	// the screen framebuffer's colour renderbuffer, iOS
 +
 +namespace
 +{
@@ -412,7 +417,24 @@ index 0000000..695e40b
 +  GLint bound = 0;
 +  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
 +  sm_gles_defaultFramebuffer = (GLuint)bound;
-+  InfoLog("OpenGL ES: the screen is framebuffer %d", bound);
++
++  // Its colour, a renderbuffer, when the screen is a framebuffer object
++  // (iOS): SDL presents the renderbuffer bound when the frame is shown
++  GLint type = GL_NONE, name = 0;
++  if (bound)
++  {
++    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
++    if (type == GL_RENDERBUFFER)
++      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
++  }
++  s_screenColour = (GLuint)name;
++  InfoLog("OpenGL ES: the screen is framebuffer %d, its colour renderbuffer %d", bound, name);
++}
++
++extern "C" void sm_gles_BeforeSwap(void)
++{
++  if (s_screenColour)
++    glBindRenderbuffer(GL_RENDERBUFFER, s_screenColour);
 +}
 +
 +extern "C" void sm_gles_BindFramebuffer(GLenum target, GLuint framebuffer)
@@ -544,7 +566,7 @@ index f241f2e..ea56083 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..f44d6f0 100644
+index 505d3a5..ec18a2e 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -648,9 +670,14 @@ index 505d3a5..f44d6f0 100644
    {
      ErrorLog("Unable to enter %s mode: %s\n", fullScreen ? "fullscreen" : "windowed", SDL_GetError());
      return Result::FAIL;
-@@ -883,6 +920,27 @@ void EndFrameVideo()
+@@ -882,7 +919,32 @@ void EndFrameVideo()
+     s_crosshair->Update(currentInputs, videoInputs, xOffset, yOffset, xRes, yRes);
  
    // Swap the buffers
++#ifdef SUPERMODEL_GLES
++  // iOS: SDL presents the renderbuffer bound, the screen's colour again
++  sm_gles_BeforeSwap();
++#endif
    SDL_GL_SwapWindow(s_window);
 +
 +#ifdef SUPERMODEL_GLES
@@ -676,7 +703,7 @@ index 505d3a5..f44d6f0 100644
  }
  
  
-@@ -1031,7 +1089,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1031,7 +1093,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -685,7 +712,7 @@ index 505d3a5..f44d6f0 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1656,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1660,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -694,7 +721,7 @@ index 505d3a5..f44d6f0 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2040,18 @@ static void Help(void)
+@@ -1982,18 +2044,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -716,7 +743,7 @@ index 505d3a5..f44d6f0 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2174,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2178,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -725,7 +752,7 @@ index 505d3a5..f44d6f0 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2187,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2191,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -734,7 +761,7 @@ index 505d3a5..f44d6f0 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2450,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2454,13 @@ int main(int argc, char **argv)
      }
    }
  
