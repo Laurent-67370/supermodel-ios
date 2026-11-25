@@ -744,7 +744,7 @@ index f241f2e..ea56083 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..ec18a2e 100644
+index 505d3a5..be0d009 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -890,7 +890,20 @@ index 505d3a5..ec18a2e 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1660,7 @@ Util::Config::Node DefaultConfig()
+@@ -1408,6 +1470,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+         double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
+         snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
+         SDL_SetWindowTitle(s_window, titleStr);
++#ifdef SUPERMODEL_IOS
++        // iOS shows no window title: the frame rate in the log, every 5 s
++        static unsigned s_fpsShown = 0;
++        if (s_fpsShown++ % 5 == 0)
++          InfoLog("Frame rate: %1.1f FPS%s", fps, paused ? " (paused)" : "");
++#endif
+         prevFPSTicks = currentFPSTicks;   // reset tick count
+         fpsFramesElapsed = 0;             // reset frame count
+       }
+@@ -1598,7 +1666,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -899,7 +912,7 @@ index 505d3a5..ec18a2e 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2044,18 @@ static void Help(void)
+@@ -1982,18 +2050,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -921,7 +934,7 @@ index 505d3a5..ec18a2e 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2178,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2184,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -930,7 +943,7 @@ index 505d3a5..ec18a2e 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2191,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2197,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -939,7 +952,7 @@ index 505d3a5..ec18a2e 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2454,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2460,13 @@ int main(int argc, char **argv)
      }
    }
  

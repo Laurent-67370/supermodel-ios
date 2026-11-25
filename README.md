@@ -50,8 +50,9 @@ l'installe soi-même avec SideStore, AltStore ou LiveContainer.
 4. Jouer avec une **manette** (Xbox, PlayStation, MFi) : il n'y a pas encore de
    commandes tactiles. Pour revenir à la liste, fermer l'app et la relancer.
    Pour remplir tout l'écran, cocher **Stretch** dans l'onglet **Video** du
-   menu (l'image est alors un peu étirée) ; **ShowFrameRate** affiche le nombre
-   d'images par seconde.
+   menu (l'image est alors un peu étirée) ; avec **ShowFrameRate**, le nombre
+   d'images par seconde est écrit dans `Supermodel.log` toutes les 5 secondes
+   (iOS n'affiche pas le titre de la fenêtre, où il apparaît sur ordinateur).
 
 Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 `Supermodel.log`, dans le même dossier de l'app.
