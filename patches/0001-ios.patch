@@ -704,9 +704,9 @@ index f241f2e..ea56083 100644
          return 1.0f;
      }
      return (std::max)(1.0f, ddpi / 96.0f);
-+#elif defined(SUPERMODEL_IOS)
-+    // iOS: big enough to be touched
-+    return 1.5f;
++#elif defined(SUPERMODEL_MOBILE)
++    // iOS, Android: big enough to be touched (ios/, android/)
++    extern float SupermodelMobileUIScale(); return SupermodelMobileUIScale();
  #else
      return 1.0f;
  #endif
@@ -729,7 +729,7 @@ index f241f2e..ea56083 100644
      SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
      SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_INPUT_FOCUS);
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +    // iOS: the whole screen, without the status bar
 +    window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_FULLSCREEN_DESKTOP);
 +#endif
@@ -752,7 +752,7 @@ index f241f2e..ea56083 100644
  
      SDL_GL_DeleteContext(glContext);
      SDL_DestroyWindow(window);
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +    // iOS: SDL stays up for the game's window (UIKit's video does not come
 +    // back from SDL_Quit: the game's window showed nothing, its sound ran)
 +#else
@@ -778,7 +778,7 @@ index 505d3a5..b276725 100644
    SDL_GetWindowSize(s_window, &actualWidth, &actualHeight);
    *totalXResPtr = actualWidth;
    *totalYResPtr = actualHeight;
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +  // iOS: the window is the screen, whatever resolution was asked
 +  *xResPtr = actualWidth;
 +  *yResPtr = actualHeight;
@@ -792,7 +792,7 @@ index 505d3a5..b276725 100644
   */
 +// iOS: full screen is the screen as it is (SDL_WINDOW_FULLSCREEN asks a
 +// display mode iOS refuses)
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +#define SM_FULLSCREEN SDL_WINDOW_FULLSCREEN_DESKTOP
 +#else
 +#define SM_FULLSCREEN SDL_WINDOW_FULLSCREEN
@@ -852,13 +852,13 @@ index 505d3a5..b276725 100644
  static Result ResizeGLScreen(unsigned *xOffsetPtr, unsigned *yOffsetPtr, unsigned *xResPtr, unsigned *yResPtr, unsigned *totalXResPtr, unsigned *totalYResPtr, bool keepAspectRatio, bool fullScreen)
  {
 -  // Set full screen mode
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +  // iOS: always the whole screen, without the status bar
 +  fullScreen = true;
 +#endif
 +  // Set full screen mode (iOS: the screen as it is, SDL_WINDOW_FULLSCREEN
 +  // asks a display mode iOS refuses: "Screen orientation does not match")
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +  if (SDL_SetWindowFullscreen(s_window, fullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) < 0)
 +#else
    if (SDL_SetWindowFullscreen(s_window, fullScreen ? SDL_WINDOW_FULLSCREEN : 0) < 0)
@@ -870,7 +870,7 @@ index 505d3a5..b276725 100644
    InfoLog("Saved NVRAM to '%s'.", file_path.c_str());
  }
  
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +// iOS: an app is closed from the app switcher, never quit: the NVRAM (the
 +// settings made in a game's test menu, the high scores) is saved each time
 +// the app goes to the background (SDL calls this on the main thread, from
@@ -925,7 +925,7 @@ index 505d3a5..b276725 100644
  
    // Load NVRAM
    LoadNVRAM(Emu);
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +  s_backgroundNVRAM = Emu;
 +  SDL_AddEventWatch(SaveNVRAMInBackground, nullptr);
 +#endif
@@ -945,7 +945,7 @@ index 505d3a5..b276725 100644
          double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
          snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
          SDL_SetWindowTitle(s_window, titleStr);
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +        // iOS shows no window title: the frame rate in the log, every 5 s
 +        static unsigned s_fpsShown = 0;
 +        if (s_fpsShown++ % 5 == 0)
@@ -958,7 +958,7 @@ index 505d3a5..b276725 100644
  #endif // SUPERMODEL_DEBUGGER
  
    // Save NVRAM
-+#ifdef SUPERMODEL_IOS
++#ifdef SUPERMODEL_MOBILE
 +  SDL_DelEventWatch(SaveNVRAMInBackground, nullptr);
 +  s_backgroundNVRAM = nullptr;
 +#endif
@@ -1018,11 +1018,11 @@ index 505d3a5..b276725 100644
      }
    }
  
-+#ifdef SUPERMODEL_IOS
-+  // iOS: Supermodel's folders in the app's Documents (Config/, ROMs/...),
-+  // which the Files app shows (ios/ios_main.mm of supermodel-ios)
-+  extern void SupermodelIOSPrepare();
-+  SupermodelIOSPrepare();
++#ifdef SUPERMODEL_MOBILE
++  // The app's folders (Config/, ROMs/...): iOS, Documents; Android, chosen
++  // (ios/ios_main.mm, android/android_main.cpp of supermodel-ios)
++  extern void SupermodelMobilePrepare();
++  SupermodelMobilePrepare();
 +#endif
 +
    Title();
