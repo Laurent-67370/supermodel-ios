@@ -80,6 +80,11 @@ set(musashi
 set_source_files_properties(${musashi} PROPERTIES
 	COMPILE_DEFINITIONS "INLINE=static inline"
 	COMPILE_OPTIONS "-Wno-unused-variable;-fno-common")
+if(ANDROID)
+	# Android's sys/types.h has a type uint, which m68kcpu.h makes a macro
+	# before m68kcpu.c includes stdio.h: the type first
+	set_property(SOURCE ${musashi} APPEND PROPERTY COMPILE_OPTIONS "-include;sys/types.h")
+endif()
 
 # OpenGL ES: GL/glew.h of Src/OSD/GLES in the place of GLEW's
 list(APPEND sources
