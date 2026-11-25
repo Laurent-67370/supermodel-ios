@@ -1,3 +1,92 @@
+diff --git a/Src/Graphics/Model1Render.cpp b/Src/Graphics/Model1Render.cpp
+index 2762b1b..cbced18 100644
+--- a/Src/Graphics/Model1Render.cpp
++++ b/Src/Graphics/Model1Render.cpp
+@@ -914,6 +914,22 @@ bool CModel1Render::InitModel2()
+   // The rest: buffer textures, sized for the board's memory
+   static const GLenum formats[M2_NUM_BUFFERS] = { GL_R32UI, GL_R32UI, GL_R8UI, GL_R16UI, GL_R16UI, GL_R8UI };
+   static const size_t sizes[M2_NUM_BUFFERS] = { 0x80000 * 4, 0x80000 * 4, 0x8000, 0x6000 * 2, 0x2000 * 2, 256 };
++#ifdef SUPERMODEL_GLES
++  // OpenGL ES 3.0 has no buffer textures: integer 2D textures 256 texels
++  // wide, texel i at (i % 256, i / 256), as the shaders read them there
++  // (Src/OSD/GLES)
++  (void)formats;
++  for (int i = M2_LUMA; i < M2_NUM_BUFFERS; i++)
++  {
++    const bool bytes = (i == M2_LUMA || i == M2_GAMMA);
++    glBindTexture(GL_TEXTURE_2D, m_m2Textures[i]);
++    glTexImage2D(GL_TEXTURE_2D, 0, bytes ? GL_R8UI : GL_R16UI, 256, (GLsizei)(sizes[i] / (bytes ? 1 : 2) / 256), 0,
++      GL_RED_INTEGER, bytes ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT, nullptr);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
++  }
++  glBindTexture(GL_TEXTURE_2D, 0);
++#else
+   for (int i = M2_LUMA; i < M2_NUM_BUFFERS; i++)
+   {
+     glBindBuffer(GL_TEXTURE_BUFFER, m_m2Buffers[i]);
+@@ -923,6 +939,7 @@ bool CModel1Render::InitModel2()
+   }
+   glBindBuffer(GL_TEXTURE_BUFFER, 0);
+   glBindTexture(GL_TEXTURE_BUFFER, 0);
++#endif
+ 
+   m_m2Shader.EnableShader();
+   static const char *names[M2_NUM_BUFFERS] = { "texRAM0", "texRAM1", "lumaRAM", "colorXlat", "palRAM", "gammaTable" };
+@@ -932,8 +949,15 @@ bool CModel1Render::InitModel2()
+   m_m2Shader.DisableShader();
+ 
+   // Quads (if they don't build, the triangles are drawn instead)
++#ifdef SUPERMODEL_GLES
++  // OpenGL ES 3.0 has no geometry shaders: triangles
++  m_m2QuadProgram = 0;
++  InfoLog("Model 1/2 renderer: OpenGL ES, drawing triangles.");
++  if (false)
++#else
+   m_m2QuadProgram = BuildQuadProgram();
+   if (m_m2QuadProgram)
++#endif
+   {
+     glUseProgram(m_m2QuadProgram);
+     for (int i = 0; i < M2_NUM_BUFFERS; i++)
+@@ -945,8 +969,10 @@ bool CModel1Render::InitModel2()
+     m_m2QuadTransparencyLoc = glGetUniformLocation(m_m2QuadProgram, "transparency");
+     glUseProgram(0);
+   }
++#ifndef SUPERMODEL_GLES
+   else
+     ErrorLog("Model 1/2 renderer: unable to build the Model 2 quad shaders; drawing triangles.");
++#endif
+   m_m2Ready = true;
+   return true;
+ }
+@@ -1007,6 +1033,18 @@ void CModel1Render::DrawModel2(const std::vector<Model2::GPUVertex> &vertices, c
+   }
+   const void *data[M2_NUM_BUFFERS] = { nullptr, nullptr, memory.lumaRAM, memory.colorXlat, memory.paletteRAM, memory.gamma };
+   static const size_t sizes[M2_NUM_BUFFERS] = { 0, 0, 0x8000, 0x6000 * 2, 0x2000 * 2, 256 };
++#ifdef SUPERMODEL_GLES
++  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
++  for (int i = M2_LUMA; i < M2_NUM_BUFFERS; i++)
++  {
++    const bool bytes = (i == M2_LUMA || i == M2_GAMMA);
++    glActiveTexture(GL_TEXTURE2 + i);
++    glBindTexture(GL_TEXTURE_2D, m_m2Textures[i]);
++    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, (GLsizei)(sizes[i] / (bytes ? 1 : 2) / 256), GL_RED_INTEGER,
++      bytes ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT, data[i]);
++  }
++  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
++#else
+   for (int i = M2_LUMA; i < M2_NUM_BUFFERS; i++)
+   {
+     glBindBuffer(GL_TEXTURE_BUFFER, m_m2Buffers[i]);
+@@ -1015,6 +1053,7 @@ void CModel1Render::DrawModel2(const std::vector<Model2::GPUVertex> &vertices, c
+     glBindTexture(GL_TEXTURE_BUFFER, m_m2Textures[i]);
+   }
+   glBindBuffer(GL_TEXTURE_BUFFER, 0);
++#endif
+   glActiveTexture(GL_TEXTURE0);
+ 
+   glBindVertexArray(m_m2VAO);
 diff --git a/Src/Graphics/New3D/New3D.cpp b/Src/Graphics/New3D/New3D.cpp
 index 42efc10..f578fa4 100644
 --- a/Src/Graphics/New3D/New3D.cpp
@@ -94,10 +183,10 @@ index 5daaca0..3cfdfc9 100644
  		blendFactor = min(blendFactor, 0.5);
 diff --git a/Src/OSD/GLES/GL/glew.h b/Src/OSD/GLES/GL/glew.h
 new file mode 100644
-index 0000000..5c87ad2
+index 0000000..230b716
 --- /dev/null
 +++ b/Src/OSD/GLES/GL/glew.h
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,182 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -197,6 +286,12 @@ index 0000000..5c87ad2
 +	(void)source; (void)type; (void)severity; (void)count; (void)ids; (void)enabled;
 +}
 +
++/* BGRA texels (desktop OpenGL) as RGBA, red and blue swapped when read */
++void sm_gles_TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height,
++  GLint border, GLenum format, GLenum type, const void *pixels);
++void sm_gles_TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
++  GLsizei height, GLenum format, GLenum type, const void *pixels);
++
 +/* The shaders, GLSL 4.10, given to OpenGL as GLSL ES 3.00 */
 +void sm_gles_ShaderSource(GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length);
 +#define glShaderSource sm_gles_ShaderSource
@@ -230,12 +325,12 @@ index 0000000..5c87ad2
 +#define glEnable(...) (glEnable(__VA_ARGS__), sm_gles_Check("glEnable", __FILE__, __LINE__))
 +#define glUniform1f(...) (glUniform1f(__VA_ARGS__), sm_gles_Check("glUniform1f", __FILE__, __LINE__))
 +#define glAttachShader(...) (glAttachShader(__VA_ARGS__), sm_gles_Check("glAttachShader", __FILE__, __LINE__))
-+#define glTexImage2D(...) (glTexImage2D(__VA_ARGS__), sm_gles_Check("glTexImage2D", __FILE__, __LINE__))
++#define glTexImage2D(...) (sm_gles_TexImage2D(__VA_ARGS__), sm_gles_Check("glTexImage2D", __FILE__, __LINE__))
 +#define glClear(...) (glClear(__VA_ARGS__), sm_gles_Check("glClear", __FILE__, __LINE__))
 +#define glScissor(...) (glScissor(__VA_ARGS__), sm_gles_Check("glScissor", __FILE__, __LINE__))
 +#define glPixelStorei(...) (glPixelStorei(__VA_ARGS__), sm_gles_Check("glPixelStorei", __FILE__, __LINE__))
 +#define glUniform2f(...) (glUniform2f(__VA_ARGS__), sm_gles_Check("glUniform2f", __FILE__, __LINE__))
-+#define glTexSubImage2D(...) (glTexSubImage2D(__VA_ARGS__), sm_gles_Check("glTexSubImage2D", __FILE__, __LINE__))
++#define glTexSubImage2D(...) (sm_gles_TexSubImage2D(__VA_ARGS__), sm_gles_Check("glTexSubImage2D", __FILE__, __LINE__))
 +#define glDrawArrays(...) (glDrawArrays(__VA_ARGS__), sm_gles_Check("glDrawArrays", __FILE__, __LINE__))
 +#define glUniform4f(...) (glUniform4f(__VA_ARGS__), sm_gles_Check("glUniform4f", __FILE__, __LINE__))
 +#define glStencilOp(...) (glStencilOp(__VA_ARGS__), sm_gles_Check("glStencilOp", __FILE__, __LINE__))
@@ -276,10 +371,10 @@ index 0000000..5c87ad2
 +#endif /* INCLUDED_SUPERMODEL_GLES_GLEW_H */
 diff --git a/Src/OSD/GLES/GLES.cpp b/Src/OSD/GLES/GLES.cpp
 new file mode 100644
-index 0000000..b55030d
+index 0000000..1ce48dc
 --- /dev/null
 +++ b/Src/OSD/GLES/GLES.cpp
-@@ -0,0 +1,220 @@
+@@ -0,0 +1,303 @@
 +/**
 + ** Supermodel
 + ** A Sega Model 3 Arcade Emulator.
@@ -315,12 +410,15 @@ index 0000000..b55030d
 +
 +#include <cstdio>
 +#include <cstring>
++#include <cctype>
 +#include <string>
 +
 +#undef glShaderSource
 +#undef glCompileShader
 +#undef glBindFramebuffer
 +#undef glDrawBuffer
++#undef glTexImage2D
++#undef glTexSubImage2D
 +#undef glLinkProgram
 +
 +GLboolean sm_gles_glewExperimental = GL_FALSE;
@@ -373,6 +471,47 @@ index 0000000..b55030d
 +    // Interpolation qualifiers GLSL ES 3.00 lacks (the quads' shaders,
 +    // which are not used without geometry shaders)
 +    ReplaceAll(source, "noperspective ", "");
++
++    // Buffer textures (GLSL ES 3.20): integer 2D textures 256 texels wide
++    // instead, a texel i at (i % 256, i / 256) (the Model 1/2 renderer makes
++    // them so in OpenGL ES; Model1Render.cpp)
++    bool buffers = false;
++    for (size_t at = source.find("usamplerBuffer"); at != std::string::npos; at = source.find("usamplerBuffer", at))
++    {
++      size_t name = at + 14;
++      while (name < source.size() && (source[name] == ' ' || source[name] == '\t'))
++        name++;
++      size_t end = name;
++      while (end < source.size() && (isalnum((unsigned char)source[end]) || source[end] == '_'))
++        end++;
++      const std::string id = source.substr(name, end - name);
++      source.replace(at, 14, "highp usampler2D");
++      at += 16;
++      if (!id.empty())
++        ReplaceAll(source, "texelFetch(" + id + ",", "sm_texelFetchBuffer(" + id + ",");
++      buffers = true;
++    }
++    std::string helpers;
++    if (buffers)
++      helpers += "uvec4 sm_texelFetchBuffer(highp usampler2D s, int i) { return texelFetch(s, ivec2(i & 255, i >> 8), 0); }\n";
++
++    // findMSB (GLSL ES 3.10): the same, in GLSL ES 3.00
++    if (source.find("findMSB(") != std::string::npos)
++    {
++      ReplaceAll(source, "findMSB(", "sm_findMSB(");
++      helpers +=
++        "int sm_findMSB(uint v) { if (v == 0u) return -1; int r = 0;"
++        " if (v >= 0x10000u) { v >>= 16; r += 16; } if (v >= 0x100u) { v >>= 8; r += 8; }"
++        " if (v >= 0x10u) { v >>= 4; r += 4; } if (v >= 0x4u) { v >>= 2; r += 2; }"
++        " if (v >= 0x2u) r += 1; return r; }\n"
++        "int sm_findMSB(int v) { return sm_findMSB(uint(v < 0 ? ~v : v)); }\n";
++    }
++    if (!helpers.empty())
++    {
++      const size_t precisions = source.find(s_precisions);
++      if (precisions != std::string::npos)
++        source.insert(precisions + sizeof(s_precisions) - 1, helpers);
++    }
 +    return source;
 +  }
 +}
@@ -500,6 +639,45 @@ index 0000000..b55030d
 +  glGetProgramInfoLog(program, (GLsizei)log.size(), nullptr, &log[0]);
 +  ErrorLog("OpenGL ES: a program does not link: %s", log.c_str());
 +}
++
++// Desktop OpenGL's BGRA texels (GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV: the
++// bytes B, G, R, A of a little-endian 0xAARRGGBB) as RGBA bytes, red and blue
++// swapped back when the texture is read (texture swizzle, OpenGL ES 3.0)
++static bool IsBGRA(GLenum format, GLenum type)
++{
++  return format == GL_BGRA && (type == GL_UNSIGNED_INT_8_8_8_8_REV || type == GL_UNSIGNED_BYTE);
++}
++
++static void SwapRedBlue(GLenum target)
++{
++  glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
++  glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, GL_RED);
++}
++
++extern "C" void sm_gles_TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height,
++  GLint border, GLenum format, GLenum type, const void *pixels)
++{
++  if (IsBGRA(format, type))
++  {
++    SwapRedBlue(target);
++    internalformat = GL_RGBA8;
++    format = GL_RGBA;
++    type = GL_UNSIGNED_BYTE;
++  }
++  glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
++}
++
++extern "C" void sm_gles_TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
++  GLsizei height, GLenum format, GLenum type, const void *pixels)
++{
++  if (IsBGRA(format, type))
++  {
++    SwapRedBlue(target);
++    format = GL_RGBA;
++    type = GL_UNSIGNED_BYTE;
++  }
++  glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
++}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
 index f241f2e..ea56083 100644
 --- a/Src/OSD/SDL/Gui.cpp
@@ -566,7 +744,7 @@ index f241f2e..ea56083 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..ec18a2e 100644
+index 505d3a5..be0d009 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -712,7 +890,20 @@ index 505d3a5..ec18a2e 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1598,7 +1660,7 @@ Util::Config::Node DefaultConfig()
+@@ -1408,6 +1470,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+         double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
+         snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
+         SDL_SetWindowTitle(s_window, titleStr);
++#ifdef SUPERMODEL_IOS
++        // iOS shows no window title: the frame rate in the log, every 5 s
++        static unsigned s_fpsShown = 0;
++        if (s_fpsShown++ % 5 == 0)
++          InfoLog("Frame rate: %1.1f FPS%s", fps, paused ? " (paused)" : "");
++#endif
+         prevFPSTicks = currentFPSTicks;   // reset tick count
+         fpsFramesElapsed = 0;             // reset frame count
+       }
+@@ -1598,7 +1666,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -721,7 +912,7 @@ index 505d3a5..ec18a2e 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2044,18 @@ static void Help(void)
+@@ -1982,18 +2050,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -743,7 +934,7 @@ index 505d3a5..ec18a2e 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2178,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2184,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -752,7 +943,7 @@ index 505d3a5..ec18a2e 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2191,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2197,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -761,7 +952,7 @@ index 505d3a5..ec18a2e 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2454,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2460,13 @@ int main(int argc, char **argv)
      }
    }
  

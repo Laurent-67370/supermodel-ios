@@ -4,21 +4,22 @@ Version iOS de [Supermodel](https://github.com/trzy/supermodel), l'émulateur
 Sega Model 3 de « The Supermodel Team » (GPL 3) : Virtua Fighter 3, Scud
 Race, Daytona USA 2, Sega Rally 2, Star Wars Trilogy, etc.
 
-**État : premier essai sur un appareil.** Sur un iPad Pro M5 sous iOS 27
-(LiveContainer), un bêta-testeur voit la liste des jeux et Virtua Fighter 3 se
-charge : la musique et les sons tournent et le jeu répond à la manette, mais
-l'écran restait noir. Le traceur d'erreurs de la 0.1.4 a trouvé la cause :
-SDL, sous iOS, montre à chaque image le *renderbuffer* actif en le croyant
-celui de l'écran, et Supermodel laissait actif le sien (la profondeur du rendu
-3D) : iOS refusait de l'afficher (`0x502` à chaque image). **La 0.1.5 remet
-celui de l'écran avant chaque image** : à essayer. Les **bêta-testeurs** sont
-les bienvenus : [issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
+**État : le Model 3 marche sur iPad.** Sur un iPad Pro M5 sous iOS 27
+(LiveContainer, sans JIT), un bêta-testeur joue **Virtua Fighter 3** « parfaitement »,
+à environ 60 images/s, à la manette (commandes modifiables dans le menu). Il
+a fallu trois corrections propres à iOS : l'écran est un framebuffer de SDL
+(0.1.2), SDL n'est plus arrêté entre la liste et le jeu (0.1.3), et le
+*renderbuffer* de l'écran est remis actif avant chaque image (0.1.5 : SDL, sous
+iOS, présente celui qui est actif). Les jeux **Model 1 et Model 2** (Virtua
+Racing, Sonic Championship) restaient noirs : leur rendu utilise des *texture
+buffers* et des pixels BGRA qu'OpenGL ES 3.0 n'a pas ; la **0.1.6** les
+remplace (à essayer). Les **bêta-testeurs** sont les bienvenus :
+[issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
 > **In English, for beta testers:** an experimental and unsigned iOS build of
-> Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27), Virtua Fighter 3
-> loads with sound and controls but a black screen: SDL presented the wrong
-> renderbuffer (the 3D renderer's depth). 0.1.5 binds the screen's back before
-> each frame is shown.
+> Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27, no JIT), Virtua
+> Fighter 3 runs perfectly at about 60 fps (build 0.1.5). Model 1 and Model 2
+> games were black; 0.1.6 ports their renderer to OpenGL ES 3.0, to be tried.
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -48,6 +49,10 @@ l'installe soi-même avec SideStore, AltStore ou LiveContainer.
    **Load game**.
 4. Jouer avec une **manette** (Xbox, PlayStation, MFi) : il n'y a pas encore de
    commandes tactiles. Pour revenir à la liste, fermer l'app et la relancer.
+   Pour remplir tout l'écran, cocher **Stretch** dans l'onglet **Video** du
+   menu (l'image est alors un peu étirée) ; avec **ShowFrameRate**, le nombre
+   d'images par seconde est écrit dans `Supermodel.log` toutes les 5 secondes
+   (iOS n'affiche pas le titre de la fenêtre, où il apparaît sur ordinateur).
 
 Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 `Supermodel.log`, dans le même dossier de l'app.
@@ -56,12 +61,12 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 
 | | |
 |---|---|
-| Jeux Model 3 | Virtua Fighter 3 se charge, son et manette OK (iPad Pro M5) ; écran noir jusqu'à la 0.1.4 (cause trouvée), à essayer en 0.1.5 |
+| Jeux Model 3 | **Virtua Fighter 3 : parfait, ~60 images/s** (iPad Pro M5, 0.1.5, sans JIT) |
 | Rendu 3D | OpenGL ES 3.0, en triangles (le rendu en quadrilatères demande des geometry shaders, absents d'iOS) |
 | Son | oui (vérifié sur iPad) |
 | Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
-| Jeux Model 1 / Model 2 | non (leur rendu demande des geometry shaders et des texture buffers) |
+| Jeux Model 1 / Model 2 | noirs jusqu'à la 0.1.5 ; la 0.1.6 remplace leurs *texture buffers* et pixels BGRA (en triangles, sans geometry shaders) : à essayer |
 | Jeux au pistolet | visée à vérifier (lecture de profondeur absente d'OpenGL ES) |
 | Réseau entre bornes | non testé |
 
@@ -93,7 +98,12 @@ de chances de tourner à pleine vitesse sur un appareil récent ; les Step 2.x
     `Supermodel.log` avec l'appel et la ligne de Supermodel qui l'a faite, et
     un programme de shaders qui ne se lie pas, avec la raison ;
   - avant chaque image montrée, le *renderbuffer* de l'écran remis actif :
-    SDL, sous iOS, présente celui qui est actif.
+    SDL, sous iOS, présente celui qui est actif ;
+  - le rendu Model 1/2 : ses *texture buffers* deviennent des textures 2D
+    d'entiers de 256 de large (lues ainsi par les shaders traduits), ses pixels
+    BGRA sont envoyés en RGBA avec rouge et bleu échangés à la lecture
+    (*swizzle*), `findMSB` (GLSL ES 3.10) est réécrit, et ses quadrilatères
+    (geometry shaders) laissent la place aux triangles.
 - [`ios/`](ios) : l'`Info.plist` et la préparation des dossiers dans
   Documents (`Config/`, `ROMs/`, `NVRAM/`, `Saves/`, `Assets/`).
 - [`CMakeLists.txt`](CMakeLists.txt) : la compilation, d'après la liste des
