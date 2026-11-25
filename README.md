@@ -5,19 +5,23 @@ Sega Model 3 de « The Supermodel Team » (GPL 3) : Virtua Fighter 3, Scud
 Race, Daytona USA 2, Sega Rally 2, Star Wars Trilogy, etc.
 
 **État : premier essai sur un appareil.** Sur un iPad Pro M5 sous iOS 27
-(LiveContainer), un bêta-testeur a vu la liste des jeux s'ouvrir et Virtua
-Fighter 3 se charger : la musique et les sons tournent et le jeu répond à la
-manette, mais **l'écran reste noir** (0.1.1, et encore en 0.1.2 malgré l'écran
-d'iOS pris en compte). La 0.1.3 essaie une autre cause : Supermodel arrêtait
-SDL entre la liste et le jeu, ce que l'iOS de SDL ne supporte pas ; elle passe
-aussi en plein écran (sans la barre d'état), agrandit le menu ×1,5, et écrit
-dans `Supermodel.log` ce que voit OpenGL pendant le jeu. Les **bêta-testeurs**
-sont les bienvenus : [issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
+(LiveContainer), un bêta-testeur voit la liste des jeux (à la bonne taille
+depuis la 0.1.3) et Virtua Fighter 3 se charge : la musique et les sons
+tournent et le jeu répond à la manette, mais **l'écran reste noir**. La 0.1.3
+a montré que l'écran d'OpenGL est bien en place (framebuffer complet, à la
+taille de l'écran) mais qu'OpenGL signale une **erreur d'opération invalide**
+(`0x502`) pendant le jeu, inconnue sous Linux ; son plein écran faisait aussi
+quitter le jeu (« Screen orientation does not match display mode size »). La
+0.1.4 corrige le plein écran et écrit dans `Supermodel.log` **quel appel
+d'OpenGL, à quelle ligne de Supermodel**, fait chaque erreur. Les
+**bêta-testeurs** sont les bienvenus :
+[issue #3](https://github.com/Laurent-67370/supermodel-ios/issues/3).
 
 > **In English, for beta testers:** an experimental and unsigned iOS build of
 > Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27), Virtua Fighter 3
-> loads with sound and controls but a black screen (0.1.1, 0.1.2); 0.1.3 tries
-> another fix and logs what OpenGL sees.
+> loads with sound and controls but a black screen; OpenGL reports an invalid
+> operation during the game. 0.1.4 fixes full screen and logs which OpenGL call
+> fails, and where.
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -55,7 +59,7 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 
 | | |
 |---|---|
-| Jeux Model 3 | Virtua Fighter 3 se charge, son et manette OK (iPad Pro M5) ; écran noir en 0.1.1 et 0.1.2, à essayer en 0.1.3 |
+| Jeux Model 3 | Virtua Fighter 3 se charge, son et manette OK (iPad Pro M5) ; écran noir (une erreur d'OpenGL ES, cherchée en 0.1.4) |
 | Rendu 3D | OpenGL ES 3.0, en triangles (le rendu en quadrilatères demande des geometry shaders, absents d'iOS) |
 | Son | oui (vérifié sur iPad) |
 | Manettes | oui (vérifié sur iPad) |
@@ -87,7 +91,10 @@ de chances de tourner à pleine vitesse sur un appareil récent ; les Step 2.x
     menu 1,5 fois plus grand sur iOS ;
   - sur iOS, SDL n'est plus arrêté entre la liste des jeux et le jeu, et tout
     est en plein écran ; `Supermodel.log` dit, après les premières images, la
-    taille de la fenêtre et de l'image, le framebuffer et les erreurs d'OpenGL.
+    taille de la fenêtre et de l'image, le framebuffer et les erreurs d'OpenGL ;
+  - pendant les 300 premières images, chaque erreur d'OpenGL est écrite dans
+    `Supermodel.log` avec l'appel et la ligne de Supermodel qui l'a faite, et
+    un programme de shaders qui ne se lie pas, avec la raison.
 - [`ios/`](ios) : l'`Info.plist` et la préparation des dossiers dans
   Documents (`Config/`, `ROMs/`, `NVRAM/`, `Saves/`, `Assets/`).
 - [`CMakeLists.txt`](CMakeLists.txt) : la compilation, d'après la liste des
