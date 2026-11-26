@@ -58,5 +58,10 @@
 	<true/>
 	<key>GCSupportsControllerUserInteraction</key>
 	<true/>
+	<!-- The mouse through GameController (GCMouse): without this key SDL has
+	     no relative mouse mode on iOS, and iPadOS no pointer lock (the Dock
+	     came up when the mouse reached the bottom of the screen in a game) -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>
