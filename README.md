@@ -21,7 +21,8 @@ et la mémoire des jeux est enregistrée quand l'app passe en arrière-plan
 > Supermodel (iOS 16.3+, arm64). On an iPad Pro M5 (iOS 27, no JIT), Virtua
 > Fighter 3 runs at full speed (57.5 fps); Virtua Racing (Model 1) and Sonic
 > Championship (Model 2) run perfectly, and games keep their settings (NVRAM)
-> when the app is closed (build 0.1.7).
+> when the app is closed (build 0.1.7). Light-gun games work with a mouse
+> (The House of the Dead, build 0.1.11), the pointer locked to the app.
 > Download
 > [supermodel.ipa](https://github.com/Laurent-67370/supermodel-ios/releases/download/supermodel-ios/supermodel.ipa),
 > sideload it (SideStore, AltStore, LiveContainer), put your games (`.zip`
@@ -72,7 +73,7 @@ Les réglages sont dans `Config/Supermodel.ini` et le journal dans
 | Manettes | oui (vérifié sur iPad) |
 | Commandes tactiles | pas encore |
 | Jeux Model 1 / Model 2 | **Virtua Racing (Model 1) et Sonic Championship (Model 2) : parfaits** (0.1.7) ; en triangles (sans geometry shaders) |
-| Jeux au pistolet | **à la souris : The House of the Dead (Model 2) marche** ; depuis la 0.1.9, en jeu, le pointeur de l'iPad est caché (le viseur du jeu le remplace : **Crosshairs** dans l'onglet Video) et retenu dans l'app, le Dock et le Centre de contrôle ne s'ouvrent plus au bord de l'écran ; le test de « ligne de mire » du Model 3 lit la profondeur, ce qu'OpenGL ES ne permet pas |
+| Jeux au pistolet | **à la souris : The House of the Dead (Model 2) marche parfaitement** (0.1.11, iPad Pro M5) : en jeu, le pointeur de l'iPad est caché (le viseur du jeu le remplace : **Crosshairs** dans l'onglet Video) et verrouillé dans l'app, le Dock et le Centre de contrôle ne s'ouvrent plus au bord de l'écran ; le test de « ligne de mire » du Model 3 lit la profondeur, ce qu'OpenGL ES ne permet pas |
 | Réseau entre bornes | non testé |
 
 **Vitesse :** le processeur PowerPC du Model 3 est émulé par un interpréteur,
