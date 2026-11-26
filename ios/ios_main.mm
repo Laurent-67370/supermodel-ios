@@ -82,3 +82,8 @@ float SupermodelMobileUIScale()
 {
 	return 1.5f;
 }
+
+// The menu's orientation: landscape only on iOS (Info.plist), nothing to do
+void SupermodelMobileMenu(bool)
+{
+}
