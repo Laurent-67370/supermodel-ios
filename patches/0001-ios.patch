@@ -697,10 +697,88 @@ index 0000000..1ce48dc
 +  glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
 +}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..5e043a1 100644
+index f241f2e..ee175f4 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
-@@ -1386,6 +1386,9 @@ static float GetDPIScale()
+@@ -39,6 +39,9 @@
+ #include "../Pkgs/imgui/imgui.h"
+ #include "../Pkgs/imgui/imgui_impl_sdl2.h"
+ #include "../Pkgs/imgui/imgui_impl_opengl3.h"
++#ifdef SUPERMODEL_MOBILE
++#include "../Pkgs/imgui/imgui_internal.h"
++#endif
+ #include "../Src/Util/NewConfig.h"
+ #include "Util/ConfigBuilders.h"
+ #include "../Src/OSD/SDL/SDLInputSystem.h"
+@@ -178,6 +181,47 @@ static ImVec2 ScaledSize(float x, float y)
+     return ImVec2(x * s_uiScale, y * s_uiScale);
+ }
+ 
++#ifdef SUPERMODEL_MOBILE
++// iOS, Android: the lists and the settings scrolled with a finger, as a
++// phone's own lists, not only with their scrollbar (thin, at the very edge
++// of the screen). A drag mostly up or down scrolls the window under it (the
++// games' list first, else the whole menu), and lets go of the button or
++// row it began on, which is then not pressed; a drag sideways still moves a
++// slider. Called before the window's End.
++static ImGuiID s_touchScrollWindow = 0;
++
++static void TouchScroll(bool withChildren)
++{
++    ImGuiWindow *window = ImGui::GetCurrentWindow();
++    ImGuiIO &io = ImGui::GetIO();
++
++    if (!io.MouseDown[ImGuiMouseButton_Left])
++    {
++        s_touchScrollWindow = 0;
++        return;
++    }
++    if (s_touchScrollWindow == 0)
++    {
++        ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f);
++        ImGuiHoveredFlags flags = ImGuiHoveredFlags_AllowWhenBlockedByActiveItem;
++        if (withChildren)
++            flags |= ImGuiHoveredFlags_ChildWindows;
++        if (window->ScrollMax.y <= 0.0f || !ImGui::IsWindowHovered(flags) ||
++            std::fabs(drag.y) < 10.0f * s_uiScale || std::fabs(drag.y) < std::fabs(drag.x))
++            return;
++        s_touchScrollWindow = window->ID;
++    }
++    if (s_touchScrollWindow != window->ID)
++        return;
++    ImGui::ClearActiveID();
++    ImGui::SetScrollY(window, window->Scroll.y - io.MouseDelta.y);
++}
++
++// The app's side of the menu (ios/ios_main.mm, android/android_main.cpp):
++// any orientation while it is shown (Android), landscape for the game
++extern void SupermodelMobileMenu(bool shown);
++#endif
++
+ template <typename T>
+ static std::string ValueToString(const T& value)
+ {
+@@ -1233,6 +1277,9 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+         ImGui::EndTable();
+     }
+ 
++#ifdef SUPERMODEL_MOBILE
++    TouchScroll(false);
++#endif
+     ImGui::EndChild();
+ 
+     // draw button options
+@@ -1347,6 +1394,9 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+         }
+     }
+ 
++#ifdef SUPERMODEL_MOBILE
++    TouchScroll(true);
++#endif
+     ImGui::End(); // Close the window
+ 
+ 
+@@ -1386,6 +1436,9 @@ static float GetDPIScale()
          return 1.0f;
      }
      return (std::max)(1.0f, ddpi / 96.0f);
@@ -710,7 +788,7 @@ index f241f2e..5e043a1 100644
  #else
      return 1.0f;
  #endif
-@@ -1411,15 +1414,25 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1411,15 +1464,29 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      }
  
      // Set OpenGL attributes
@@ -733,10 +811,26 @@ index f241f2e..5e043a1 100644
 +    // iOS: the whole screen, without the status bar
 +    window_flags = (SDL_WindowFlags)(window_flags | SDL_WINDOW_FULLSCREEN_DESKTOP);
 +#endif
++
++#ifdef SUPERMODEL_MOBILE
++    SupermodelMobileMenu(true);
++#endif
  
      // Create SDL window
      s_uiScale = GetDPIScale();
-@@ -1464,7 +1477,11 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1459,12 +1526,23 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+     //ImGui::StyleColorsClassic();
+ 
+     ImGuiStyle& style = ImGui::GetStyle();
++#ifdef SUPERMODEL_MOBILE
++    // Scrollbars wide enough for a finger, and some room around the items
++    style.ScrollbarSize = 26.0f;
++    style.GrabMinSize = 24.0f;
++    style.FramePadding.y = 6.0f;
++    style.ItemSpacing.y = 8.0f;
++#endif
+     style.ScaleAllSizes(s_uiScale);
+     style.FontScaleDpi = s_uiScale;
  
      // Setup Platform/Renderer backends
      ImGui_ImplSDL2_InitForOpenGL(window, glContext);
@@ -748,13 +842,14 @@ index f241f2e..5e043a1 100644
  
      std::string xmlFile = config["GameXMLFile"].ValueAs<std::string>();
      GameLoader loader(xmlFile);
-@@ -1550,7 +1567,12 @@ exitNoSave:
+@@ -1550,7 +1628,13 @@ exitNoSave:
  
      SDL_GL_DeleteContext(glContext);
      SDL_DestroyWindow(window);
 +#ifdef SUPERMODEL_MOBILE
 +    // iOS: SDL stays up for the game's window (UIKit's video does not come
 +    // back from SDL_Quit: the game's window showed nothing, its sound ran)
++    SupermodelMobileMenu(false);
 +#else
      SDL_Quit();
 +#endif
