@@ -54,6 +54,9 @@ l'installe soi-même avec SideStore, AltStore ou LiveContainer.
    commandes tactiles. Pour revenir à la liste, fermer l'app et la relancer
    (depuis la 0.1.7, les réglages faits dans le menu de service du jeu sont
    gardés).
+   En jeu, le bouton **MENU** (en haut à gauche) sauvegarde et charge l'état,
+   met en pause, redémarre le jeu, donne les boutons Test et Service de la
+   borne, ou quitte (rouvrir l'app pour revenir à la liste).
    Pour remplir tout l'écran, cocher **Stretch** dans l'onglet **Video** du
    menu (l'image est alors un peu étirée) ; avec **ShowFrameRate**, le nombre
    d'images par seconde est écrit dans `Supermodel.log` toutes les 5 secondes
