@@ -697,7 +697,7 @@ index 0000000..1ce48dc
 +  glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
 +}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..3364a47 100644
+index f241f2e..60b74e1 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
 @@ -39,6 +39,9 @@
@@ -710,10 +710,18 @@ index f241f2e..3364a47 100644
  #include "../Src/Util/NewConfig.h"
  #include "Util/ConfigBuilders.h"
  #include "../Src/OSD/SDL/SDLInputSystem.h"
-@@ -178,6 +181,87 @@ static ImVec2 ScaledSize(float x, float y)
+@@ -178,6 +181,95 @@ static ImVec2 ScaledSize(float x, float y)
      return ImVec2(x * s_uiScale, y * s_uiScale);
  }
  
++// iOS, Android: the menu in French (supermodel-ios, for its users), the
++// English text elsewhere; "label##id" keeps the same ImGui id in both
++#ifdef SUPERMODEL_MOBILE
++#define TR(en, fr) fr
++#else
++#define TR(en, fr) en
++#endif
++
 +#ifdef SUPERMODEL_MOBILE
 +// iOS, Android: a finger on the menu, as on a phone's own lists. A touch is
 +// held back until it is known: a tap (pressed there, then released), a drag
@@ -798,7 +806,257 @@ index f241f2e..3364a47 100644
  template <typename T>
  static std::string ValueToString(const T& value)
  {
-@@ -1386,6 +1470,9 @@ static float GetDPIScale()
+@@ -747,7 +839,12 @@ static void AddKeys(Util::Config::Node& config, KeyBindState& kb, const std::vec
+ 
+ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex, bool& exit, bool& saveSettings, std::shared_ptr<CInputs>& inputs, bool closeRequested, bool& exitPromptOpen, PerGameState& perGame, const Game& selectedGame)
+ {
++#ifdef SUPERMODEL_MOBILE
++    // A big button, easy to find and to touch
++    if (ImGui::Button(TR("Load game", "  Jouer  ##Load game"), ScaledSize(0.0f, 40.0f))) {
++#else
+     if (ImGui::Button("Load game")) {
++#endif
+ 
+         if (selectedGameIndex < 0) {
+             ImGui::OpenPopup("Load game");
+@@ -759,7 +856,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+ 
+     if (ImGui::BeginPopupModal("Load game", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+ 
+-        ImGui::Text("No game selected");
++        ImGui::Text(TR("No game selected", "Touchez d'abord un jeu dans la liste"));
+         ImGui::Separator();
+ 
+         if (ImGui::Button("OK", ScaledSize(120, 0))) { 
+@@ -771,7 +868,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+ 
+     ImGui::SameLine();
+ 
+-    if (ImGui::Button("Load Defaults")) {
++    if (ImGui::Button(TR("Load Defaults", "Réglages par défaut##Load Defaults"))) {
+         ImGui::OpenPopup("Confirm Load");
+     }
+ 
+@@ -806,7 +903,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+ 
+     ImGui::SameLine();
+ 
+-    if (ImGui::Button("Exit") || closeRequested) {
++    if (ImGui::Button(TR("Exit", "Quitter##Exit")) || closeRequested) {
+         ImGui::OpenPopup("Save On Exit");
+     }
+ 
+@@ -840,7 +937,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+         AutoTickPerGame(perGame, config, selectedGame);
+ 
+         ImGui::BeginDisabled(selectedGame.name.empty());
+-        ImGui::Checkbox("Per game settings", &perGame.enabled);
++        ImGui::Checkbox(TR("Per game settings", "Réglages propres à ce jeu##Per game settings"), &perGame.enabled);
+         ImGui::EndDisabled();
+ 
+         if (SyncPerGame(perGame, config, selectedGame)) {
+@@ -1143,6 +1240,90 @@ static Game GetGame(const std::map<std::string, Game>& games, int selectedGameIn
+     return {};
+ }
+ 
++#ifdef SUPERMODEL_MOBILE
++// iOS, Android: the settings that matter on a phone or a tablet, first, in
++// French, each with a line that says what it does (the other tabs keep
++// every setting of Supermodel)
++template <typename T>
++static void SetSetting(Util::Config::Node& config, const char* key, T value)
++{
++    auto range = config[key].GetValue()->GetValueRange();
++    config.Set(key, value);
++    config[key].GetValue()->SetValueRange(range);
++}
++
++static void EssentialCheckbox(Util::Config::Node& config, const char* key, const char* label, const char* help)
++{
++    bool on = config[key].ValueAs<bool>();
++    if (ImGui::Checkbox(label, &on)) {
++        SetSetting(config, key, on);
++    }
++    ImGui::Indent();
++    ImGui::TextDisabled("%s", help);
++    ImGui::Unindent();
++}
++
++static void EssentialSlider(Util::Config::Node& config, const char* key, const char* label, int min, int max, const char* help)
++{
++    int value = config[key].ValueAs<int>();
++    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.6f);
++    if (ImGui::SliderInt(label, &value, min, max, "%d %%")) {
++        SetSetting(config, key, value);
++    }
++    ImGui::Indent();
++    ImGui::TextDisabled("%s", help);
++    ImGui::Unindent();
++}
++
++static void DrawEssentials(Util::Config::Node& config)
++{
++    ImGui::SeparatorText("Image");
++    EssentialCheckbox(config, "WideScreen", "Écran large (16:9)",
++        "La 3D occupe toute la largeur de l'écran ; les images 2D restent en 4:3.");
++    EssentialCheckbox(config, "WideBackground", "Décor de fond élargi",
++        "En écran large, le décor du fond (le ciel) suit toute la largeur.");
++    EssentialCheckbox(config, "Stretch", "Étirer l'image",
++        "Toute l'image remplit l'écran, déformée (personnages plus larges).");
++    EssentialCheckbox(config, "NoWhiteFlash", "Pas de flash blanc",
++        "Des bandes noires, et non blanches, autour des images 2D.");
++    {
++        static const char* names[] = { "Aucun", "Joueur 1", "Joueur 2", "Joueurs 1 et 2" };
++        int crosshairs = config["Crosshairs"].ValueAs<int>();
++        if (crosshairs < 0 || crosshairs > 3)
++            crosshairs = 0;
++        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.6f);
++        if (ImGui::Combo("Viseur (jeux au pistolet)", &crosshairs, names, 4)) {
++            SetSetting(config, "Crosshairs", crosshairs);
++        }
++        ImGui::Indent();
++        ImGui::TextDisabled("La cible montrée là où l'on vise, au doigt ou à la souris.");
++        ImGui::Unindent();
++    }
++
++    ImGui::SeparatorText("Son");
++    EssentialSlider(config, "SoundVolume", "Effets sonores", 0, 200, "Le volume des bruitages et des voix.");
++    EssentialSlider(config, "MusicVolume", "Musique", 0, 200, "Le volume de la musique.");
++
++    ImGui::SeparatorText("Vitesse");
++    EssentialCheckbox(config, "ShowFrameRate", "Mesurer la vitesse",
++        "Le nombre d'images par seconde écrit dans Supermodel.log toutes les 5 s.");
++    {
++        unsigned mhz = config["PowerPCFrequency"].ValueAs<unsigned>();
++        bool automatic = mhz == 0;
++        if (ImGui::Checkbox("Processeur à sa vitesse d'origine (recommandé)", &automatic)) {
++            mhz = automatic ? 0u : 100u;
++            SetSetting(config, "PowerPCFrequency", mhz);
++        }
++        ImGui::Indent();
++        if (automatic)
++            ImGui::TextDisabled("Comme sur la borne.");
++        else
++            ImGui::TextDisabled("Réglé à la main (onglet Émulation) : %u MHz.", mhz);
++        ImGui::Unindent();
++    }
++}
++#endif
++
+ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::map<std::string, Game>& games, const std::set<std::string>& ownedZips, int& selectedGameIndex, bool& exit, bool& saveSettings, SDL_Window* window, std::shared_ptr<CInputs>& inputs, KeyBindState& kb, CalibrationState& cal, bool closeRequested, bool& exitPromptOpen, PerGameState& perGame)
+ {
+     ImVec4 clear_color = ImVec4(0.0f, 0.5f, 192/255.f, 1.00f);
+@@ -1165,25 +1346,28 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+                 ownedCount++;
+             }
+         }
+-        if (ImGui::Checkbox("Show all supported games", &s_showAllGames) && !s_showAllGames && selectedGameIndex >= 0) {
++        if (ImGui::Checkbox(TR("Show all supported games", "Tous les jeux connus##Show all supported games"), &s_showAllGames) && !s_showAllGames && selectedGameIndex >= 0) {
+             // a game that is no longer listed can't stay selected
+             if (!ownedZips.count(ToLowerStr(GetGame(games, selectedGameIndex).name))) {
+                 selectedGameIndex = -1;
+             }
+         }
+         ImGui::SameLine();
+-        ImGui::TextDisabled("(%zu of %zu supported games in the ROM folder)", ownedCount, games.size());
++        ImGui::TextDisabled(TR("(%zu of %zu supported games in the ROM folder)", "(%zu sur %zu jeux trouvés dans ROMs)"), ownedCount, games.size());
++#ifdef SUPERMODEL_MOBILE
++        ImGui::TextDisabled("Touchez un jeu puis Jouer, ou touchez-le deux fois. Glissez pour faire défiler.");
++#endif
+     }
+ 
+     ImGui::BeginChild("TableRegion", ScaledSize(0.0f, 200.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+ 
+     if (ImGui::BeginTable("Games", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit))
+     {
+-        ImGui::TableSetupColumn("Title");
+-        ImGui::TableSetupColumn("Rom Name");
++        ImGui::TableSetupColumn(TR("Title", "Titre"));
++        ImGui::TableSetupColumn(TR("Rom Name", "Fichier"));
+         ImGui::TableSetupColumn("Version");
+-        ImGui::TableSetupColumn("Year");
+-        ImGui::TableSetupColumn("Hardware");
++        ImGui::TableSetupColumn(TR("Year", "Année"));
++        ImGui::TableSetupColumn(TR("Hardware", "Système"));
+ 
+         ImGui::TableHeadersRow();
+ 
+@@ -1246,41 +1430,50 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+ 
+     // draw the tabbed options
+     if (ImGui::BeginTabBar("MyTabBar", ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+-        if (ImGui::BeginTabItem("Core")) {
++#ifdef SUPERMODEL_MOBILE
++        if (ImGui::BeginTabItem("Essentiel")) {
++            DrawEssentials(config);
++            ImGui::EndTabItem();
++            inputs = nullptr;
++        }
++#endif
++        if (ImGui::BeginTabItem(TR("Core", "Émulation##Core"))) {
+             UpdateTempValues(config, "Core", true);
+             CreateControls(config, "Core");
+             UpdateTempValues(config, "Core", false);
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Video")) {
++        if (ImGui::BeginTabItem(TR("Video", "Vidéo##Video"))) {
+             UpdateTempValues(config, "Video", true);
+             CreateControls(config, "Video");
+             UpdateTempValues(config, "Video", false);
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Audio")) {
++        if (ImGui::BeginTabItem(TR("Audio", "Son##Audio"))) {
+             UpdateTempValues(config, "Sound", true);
+             CreateControls(config, "Sound");
+             UpdateTempValues(config, "Sound", false);
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Networking")) {
++        if (ImGui::BeginTabItem(TR("Networking", "Réseau##Networking"))) {
+             UpdateTempValues(config, "Network", true);
+             CreateControls(config, "Network");
+             UpdateTempValues(config, "Network", false);
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Misc")) {
++        if (ImGui::BeginTabItem(TR("Misc", "Divers##Misc"))) {
+             UpdateTempValues(config, "Misc", true);
+             CreateControls(config, "Misc");
+             UpdateTempValues(config, "Misc", false);
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
++#ifndef SUPERMODEL_MOBILE
++        // (iOS, Android: no force feedback wheel on a phone)
+         if (ImGui::BeginTabItem("ForceFeedback")) {
+             UpdateTempValues(config, "ForceFeedback", true);
+             CreateControls(config, "ForceFeedback");
+@@ -1288,7 +1481,8 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Sensitivity")) {
++#endif
++        if (ImGui::BeginTabItem(TR("Sensitivity", "Sensibilité##Sensitivity"))) {
+             UpdateTempValues(config, "Sensitivity", true);
+             CreateControls(config, "Sensitivity");
+             UpdateTempValues(config, "Sensitivity", false);
+@@ -1305,7 +1499,7 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+             ImGui::EndTabItem();
+             inputs = nullptr;
+         }
+-        if (ImGui::BeginTabItem("Key bindings")) {
++        if (ImGui::BeginTabItem(TR("Key bindings", "Touches##Key bindings"))) {
+ 
+             if (inputs == nullptr) {
+                 inputs = GetInputSystem(config, window);
+@@ -1386,6 +1580,9 @@ static float GetDPIScale()
          return 1.0f;
      }
      return (std::max)(1.0f, ddpi / 96.0f);
@@ -808,7 +1066,7 @@ index f241f2e..3364a47 100644
  #else
      return 1.0f;
  #endif
-@@ -1411,15 +1498,29 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1411,15 +1608,29 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      }
  
      // Set OpenGL attributes
@@ -838,7 +1096,7 @@ index f241f2e..3364a47 100644
  
      // Create SDL window
      s_uiScale = GetDPIScale();
-@@ -1459,12 +1560,23 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1459,12 +1670,23 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      //ImGui::StyleColorsClassic();
  
      ImGuiStyle& style = ImGui::GetStyle();
@@ -862,7 +1120,7 @@ index f241f2e..3364a47 100644
  
      std::string xmlFile = config["GameXMLFile"].ValueAs<std::string>();
      GameLoader loader(xmlFile);
-@@ -1494,6 +1606,9 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1494,6 +1716,9 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
  
          while (SDL_PollEvent(&event)) {
  
@@ -872,7 +1130,7 @@ index f241f2e..3364a47 100644
              ImGui_ImplSDL2_ProcessEvent(&event);
  
              if (event.type == SDL_QUIT) {
-@@ -1550,7 +1665,13 @@ exitNoSave:
+@@ -1550,7 +1775,13 @@ exitNoSave:
  
      SDL_GL_DeleteContext(glContext);
      SDL_DestroyWindow(window);
@@ -887,7 +1145,7 @@ index f241f2e..3364a47 100644
      return romFiles;
  }
 diff --git a/Src/OSD/SDL/Main.cpp b/Src/OSD/SDL/Main.cpp
-index 505d3a5..e0a26a7 100644
+index 505d3a5..4fee719 100644
 --- a/Src/OSD/SDL/Main.cpp
 +++ b/Src/OSD/SDL/Main.cpp
 @@ -89,7 +89,7 @@
@@ -1066,7 +1324,7 @@ index 505d3a5..e0a26a7 100644
  
    // Set the video mode
    char baseTitleStr[128];
-@@ -1014,6 +1101,14 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1014,6 +1101,19 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
  
    // Hide mouse if fullscreen, enable crosshairs for gun games
    Inputs->GetInputSystem()->SetMouseVisibility(!s_runtime_config["FullScreen"].ValueAs<bool>());
@@ -1077,11 +1335,16 @@ index 505d3a5..e0a26a7 100644
 +  // position is still that of the window, made of the mouse's moves)
 +  Inputs->GetInputSystem()->SetMouseVisibility(false);
 +  SDL_SetRelativeMouseMode(SDL_TRUE);
++  // The app's touch controls for this kind of game (Android: a stick and
++  // P K G E for fighting, a wheel and pedals for driving, a finger that
++  // aims for guns)
++  extern void SupermodelMobileGame(const char *name, unsigned inputs);
++  SupermodelMobileGame(game.name.c_str(), unsigned(game.inputs));
 +#endif
    gameHasLightguns = !!(game.inputs & (Game::INPUT_GUN1|Game::INPUT_GUN2));
    gameHasLightguns |= game.name == "lostwsga";
    currentInputs = game.inputs;
-@@ -1031,7 +1126,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1031,7 +1131,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
    SuperAA* superAA = new SuperAA(aaValue, CRTcolors);
    superAA->Init(totalXRes, totalYRes);  // pass actual frame sizes here
    IRender2D *Render2D = CreateRender2D(Emu);
@@ -1090,7 +1353,7 @@ index 505d3a5..e0a26a7 100644
    IRender3D *Render3D = s_runtime_config["New3DEngine"].ValueAs<bool>() ? ((IRender3D *) new New3D::CNew3D(s_runtime_config, Emu->GetGame().name)) : ((IRender3D *) new Legacy3D::CLegacy3D(s_runtime_config));
  #else
    // Legacy renderer is not supported on Mac, always use new engine
-@@ -1239,6 +1334,9 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1239,6 +1339,9 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
        Emu->AttachRenderers(Render2D, Render3D, superAA);
  
        Inputs->GetInputSystem()->SetMouseVisibility(!s_runtime_config["FullScreen"].ValueAs<bool>());
@@ -1100,7 +1363,7 @@ index 505d3a5..e0a26a7 100644
      }
      else if (Inputs->uiSaveState->Pressed())
      {
-@@ -1408,6 +1506,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1408,6 +1511,12 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
          double fps = double(fpsFramesElapsed) / (double(measurementTicks) / double(s_perfCounterFrequency));
          snprintf(titleStr, sizeof(titleStr), "%s - %1.3f FPS%s", baseTitleStr, fps, paused ? " (Paused)" : "");
          SDL_SetWindowTitle(s_window, titleStr);
@@ -1113,7 +1376,7 @@ index 505d3a5..e0a26a7 100644
          prevFPSTicks = currentFPSTicks;   // reset tick count
          fpsFramesElapsed = 0;             // reset frame count
        }
-@@ -1435,6 +1539,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
+@@ -1435,6 +1544,10 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Emu, CInputs *Input
  #endif // SUPERMODEL_DEBUGGER
  
    // Save NVRAM
@@ -1124,7 +1387,7 @@ index 505d3a5..e0a26a7 100644
    SaveNVRAM(Emu);
  
    // Close audio
-@@ -1598,7 +1706,7 @@ Util::Config::Node DefaultConfig()
+@@ -1598,7 +1711,7 @@ Util::Config::Node DefaultConfig()
    config["Transparency"].GetValue()->GetValueRange()->SetNote("Model 1/2 only");
    config.Set<std::string>("ROMDirectory", FileSystemPath::GetPath(FileSystemPath::ROMs), "Core", "", ""); // where the GUI looks for <romset>.zip
    // 2D and 3D graphics engines
@@ -1133,7 +1396,45 @@ index 505d3a5..e0a26a7 100644
    config.Set("MultiTexture", false, "Legacy3D");
    config.Set<std::string>("VertexShader", "", "Legacy3D", "", "");
    config.Set<std::string>("FragmentShader", "", "Legacy3D", "", "");
-@@ -1982,18 +2090,18 @@ static void Help(void)
+@@ -1634,19 +1747,37 @@ Util::Config::Node DefaultConfig()
+   SetLabels("CRTcolors", { "None", "ARI/D93 (JP games)", "PVM_20M2U/D93", "BT601_525/D93", "BT601_525/D65 (US games)", "BT601_625/D65 (EUR/AUS games)" });
+   config.Set("UpscaleMode", 2, "Video", 0, 0, { 0,1,2,3 });
+   SetLabels("UpscaleMode", { "None (sharp pixels)", "Biquintic", "Bilinear", "Bicubic" });
++#ifdef SUPERMODEL_MOBILE
++  // iOS, Android: a phone's or a tablet's wide screen filled (the 3D wide,
++  // the background stretched with it)
++  config.Set("WideScreen", true, "Video");
++  config.Set("Stretch", false, "Video");
++  config.Set("WideBackground", true, "Video");
++#else
+   config.Set("WideScreen", false, "Video");
+   config.Set("Stretch", false, "Video");
+   config.Set("WideBackground", false, "Video");
++#endif
+   config.Set("VSync", true, "Video");
+   config.Set("Throttle", true, "Video");
+   config.Set("RefreshRate", 60.0f, "Video", 0.0f, 0.0f, { 57.524f, 60.f });
+   SetLabels("RefreshRate", { "57.524 Hz (original hardware)", "60 Hz" });
+   config.Set("ShowFrameRate", false, "Video");
++#ifdef SUPERMODEL_MOBILE
++  // iOS, Android: the gun's crosshair shown (aimed with a finger or a mouse)
++  config.Set("Crosshairs", int(1), "Video", 0, 0, { 0,1,2,3 });
++#else
+   config.Set("Crosshairs", int(0), "Video", 0, 0, { 0,1,2,3 });
++#endif
+   SetLabels("Crosshairs", { "None", "Player 1 only", "Player 2 only", "Players 1 & 2" });
+   config.Set<std::string>("CrosshairStyle", "vector", "Video", "", "", { "bmp","vector" });
+   SetLabels("CrosshairStyle", { "Bitmap", "Vector" });
++#ifdef SUPERMODEL_MOBILE
++  // iOS, Android: black, not white, beside a 2D picture in wide screen
++  config.Set("NoWhiteFlash", true, "Video");
++#else
+   config.Set("NoWhiteFlash", false, "Video");
++#endif
+   config.Set("FlipStereo", false, "Sound");
+ #ifdef SUPERMODEL_WIN32
+   config.Set<std::string>("InputSystem", "dinput", "Core", "", "", { "sdl","sdlgamepad","dinput","xinput","rawinput" });
+@@ -1982,18 +2113,18 @@ static void Help(void)
    puts("  -crosshairs=<n>         Crosshairs configuration for gun games:");
    puts("                          0=none [Default], 1=P1 only, 2=P2 only, 3=P1 & P2");
    puts("  -crosshair-style=<s>    Crosshair style: vector or bmp. [Default: vector]");
@@ -1155,7 +1456,7 @@ index 505d3a5..e0a26a7 100644
    puts("  -vert-shader=<file>     Load Real3D vertex shader for 3D rendering (legacy");
    puts("                          engine)");
    puts("  -frag-shader=<file>     Load Real3D fragment shader for 3D rendering (legacy");
-@@ -2116,7 +2224,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2116,7 +2247,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-no-stretch",          { "Stretch",          false } },
      { "-wide-bg",             { "WideBackground",   true } },
      { "-no-wide-bg",          { "WideBackground",   false } },
@@ -1164,7 +1465,7 @@ index 505d3a5..e0a26a7 100644
      { "-no-multi-texture",    { "MultiTexture",     false } },
      { "-multi-texture",       { "MultiTexture",     true } },
  #endif
-@@ -2129,7 +2237,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+@@ -2129,7 +2260,7 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
      { "-new3d",               { "New3DEngine",      true } },
      { "-quad-rendering",      { "QuadRendering",    true } },
      { "-no-quad-rendering",   { "QuadRendering",    false } },
@@ -1173,7 +1474,7 @@ index 505d3a5..e0a26a7 100644
      { "-legacy3d",            { "New3DEngine",      false } },
  #endif
      { "-no-flip-stereo",      { "FlipStereo",       false } },
-@@ -2392,6 +2500,13 @@ int main(int argc, char **argv)
+@@ -2392,6 +2523,13 @@ int main(int argc, char **argv)
      }
    }
  
