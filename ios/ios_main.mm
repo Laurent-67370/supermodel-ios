@@ -87,3 +87,8 @@ float SupermodelMobileUIScale()
 void SupermodelMobileMenu(bool)
 {
 }
+
+// The game's touch controls: none on iOS yet (a game controller or a mouse)
+void SupermodelMobileGame(const char *, unsigned)
+{
+}

@@ -116,3 +116,25 @@ void SupermodelMobileMenu(bool shown)
 	}
 	__android_log_print(ANDROID_LOG_INFO, "Supermodel", "game in %s", Landscape() ? "landscape" : "portrait (not turned)");
 }
+
+// The touch controls for the game (SupermodelActivity.setGameControls of
+// supermodel-android): its name, and the kinds of controls it has (Game.h)
+void SupermodelMobileGame(const char *name, unsigned inputs)
+{
+	JNIEnv *env = (JNIEnv *) SDL_AndroidGetJNIEnv();
+	jobject activity = (jobject) SDL_AndroidGetActivity();
+	if (!env || !activity)
+		return;
+	jclass type = env->GetObjectClass(activity);
+	jmethodID method = env->GetMethodID(type, "setGameControls", "(Ljava/lang/String;I)V");
+	if (method)
+	{
+		jstring game = env->NewStringUTF(name);
+		env->CallVoidMethod(activity, method, game, (jint) inputs);
+		env->DeleteLocalRef(game);
+	}
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+	env->DeleteLocalRef(type);
+	env->DeleteLocalRef(activity);
+}
