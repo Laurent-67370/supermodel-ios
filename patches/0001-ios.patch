@@ -697,7 +697,7 @@ index 0000000..1ce48dc
 +  glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
 +}
 diff --git a/Src/OSD/SDL/Gui.cpp b/Src/OSD/SDL/Gui.cpp
-index f241f2e..60b74e1 100644
+index f241f2e..24d3790 100644
 --- a/Src/OSD/SDL/Gui.cpp
 +++ b/Src/OSD/SDL/Gui.cpp
 @@ -39,6 +39,9 @@
@@ -710,14 +710,25 @@ index f241f2e..60b74e1 100644
  #include "../Src/Util/NewConfig.h"
  #include "Util/ConfigBuilders.h"
  #include "../Src/OSD/SDL/SDLInputSystem.h"
-@@ -178,6 +181,95 @@ static ImVec2 ScaledSize(float x, float y)
+@@ -178,6 +181,106 @@ static ImVec2 ScaledSize(float x, float y)
      return ImVec2(x * s_uiScale, y * s_uiScale);
  }
  
-+// iOS, Android: the menu in French (supermodel-ios, for its users), the
-+// English text elsewhere; "label##id" keeps the same ImGui id in both
++// iOS, Android: the menu in French when the device is in French, in English
++// otherwise (the computer's Supermodel: English); "label##id" keeps the same
++// ImGui id in both
 +#ifdef SUPERMODEL_MOBILE
-+#define TR(en, fr) fr
++static bool s_french = false;
++
++static bool DeviceInFrench()
++{
++    SDL_Locale* locales = SDL_GetPreferredLocales();
++    bool french = locales && locales[0].language && std::string(locales[0].language).rfind("fr", 0) == 0;
++    SDL_free(locales);
++    return french;
++}
++
++#define TR(en, fr) (s_french ? (fr) : (en))
 +#else
 +#define TR(en, fr) en
 +#endif
@@ -806,29 +817,29 @@ index f241f2e..60b74e1 100644
  template <typename T>
  static std::string ValueToString(const T& value)
  {
-@@ -747,7 +839,12 @@ static void AddKeys(Util::Config::Node& config, KeyBindState& kb, const std::vec
+@@ -747,7 +850,12 @@ static void AddKeys(Util::Config::Node& config, KeyBindState& kb, const std::vec
  
  static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex, bool& exit, bool& saveSettings, std::shared_ptr<CInputs>& inputs, bool closeRequested, bool& exitPromptOpen, PerGameState& perGame, const Game& selectedGame)
  {
 +#ifdef SUPERMODEL_MOBILE
 +    // A big button, easy to find and to touch
-+    if (ImGui::Button(TR("Load game", "  Jouer  ##Load game"), ScaledSize(0.0f, 40.0f))) {
++    if (ImGui::Button(TR("  Play  ##Load game", "  Jouer  ##Load game"), ScaledSize(0.0f, 40.0f))) {
 +#else
      if (ImGui::Button("Load game")) {
 +#endif
  
          if (selectedGameIndex < 0) {
              ImGui::OpenPopup("Load game");
-@@ -759,7 +856,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+@@ -759,7 +867,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
  
      if (ImGui::BeginPopupModal("Load game", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
  
 -        ImGui::Text("No game selected");
-+        ImGui::Text(TR("No game selected", "Touchez d'abord un jeu dans la liste"));
++        ImGui::Text("%s", TR("No game selected: touch a game in the list first", "Touchez d'abord un jeu dans la liste"));
          ImGui::Separator();
  
          if (ImGui::Button("OK", ScaledSize(120, 0))) { 
-@@ -771,7 +868,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+@@ -771,7 +879,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
  
      ImGui::SameLine();
  
@@ -837,7 +848,7 @@ index f241f2e..60b74e1 100644
          ImGui::OpenPopup("Confirm Load");
      }
  
-@@ -806,7 +903,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+@@ -806,7 +914,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
  
      ImGui::SameLine();
  
@@ -846,7 +857,7 @@ index f241f2e..60b74e1 100644
          ImGui::OpenPopup("Save On Exit");
      }
  
-@@ -840,7 +937,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
+@@ -840,7 +948,7 @@ static void DrawButtonOptions(Util::Config::Node& config, int& selectedGameIndex
          AutoTickPerGame(perGame, config, selectedGame);
  
          ImGui::BeginDisabled(selectedGame.name.empty());
@@ -855,7 +866,7 @@ index f241f2e..60b74e1 100644
          ImGui::EndDisabled();
  
          if (SyncPerGame(perGame, config, selectedGame)) {
-@@ -1143,6 +1240,90 @@ static Game GetGame(const std::map<std::string, Game>& games, int selectedGameIn
+@@ -1143,6 +1251,90 @@ static Game GetGame(const std::map<std::string, Game>& games, int selectedGameIn
      return {};
  }
  
@@ -896,48 +907,48 @@ index f241f2e..60b74e1 100644
 +
 +static void DrawEssentials(Util::Config::Node& config)
 +{
-+    ImGui::SeparatorText("Image");
-+    EssentialCheckbox(config, "WideScreen", "Écran large (16:9)",
-+        "La 3D occupe toute la largeur de l'écran ; les images 2D restent en 4:3.");
-+    EssentialCheckbox(config, "WideBackground", "Décor de fond élargi",
-+        "En écran large, le décor du fond (le ciel) suit toute la largeur.");
-+    EssentialCheckbox(config, "Stretch", "Étirer l'image",
-+        "Toute l'image remplit l'écran, déformée (personnages plus larges).");
-+    EssentialCheckbox(config, "NoWhiteFlash", "Pas de flash blanc",
-+        "Des bandes noires, et non blanches, autour des images 2D.");
++    ImGui::SeparatorText(TR("Picture", "Image"));
++    EssentialCheckbox(config, "WideScreen", TR("Wide screen (16:9)", "Écran large (16:9)"),
++        TR("The 3D fills the screen's width; the 2D pictures stay 4:3.", "La 3D occupe toute la largeur de l'écran ; les images 2D restent en 4:3."));
++    EssentialCheckbox(config, "WideBackground", TR("Wide background", "Décor de fond élargi"),
++        TR("In wide screen, the background (the sky) fills the width too.", "En écran large, le décor du fond (le ciel) suit toute la largeur."));
++    EssentialCheckbox(config, "Stretch", TR("Stretch the picture", "Étirer l'image"),
++        TR("The whole picture fills the screen, distorted (wider characters).", "Toute l'image remplit l'écran, déformée (personnages plus larges)."));
++    EssentialCheckbox(config, "NoWhiteFlash", TR("No white flash", "Pas de flash blanc"),
++        TR("Black bars, not white ones, beside the 2D pictures.", "Des bandes noires, et non blanches, autour des images 2D."));
 +    {
-+        static const char* names[] = { "Aucun", "Joueur 1", "Joueur 2", "Joueurs 1 et 2" };
++        const char* names[] = { TR("None", "Aucun"), TR("Player 1", "Joueur 1"), TR("Player 2", "Joueur 2"), TR("Players 1 and 2", "Joueurs 1 et 2") };
 +        int crosshairs = config["Crosshairs"].ValueAs<int>();
 +        if (crosshairs < 0 || crosshairs > 3)
 +            crosshairs = 0;
 +        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.6f);
-+        if (ImGui::Combo("Viseur (jeux au pistolet)", &crosshairs, names, 4)) {
++        if (ImGui::Combo(TR("Crosshair (gun games)##Crosshairs", "Viseur (jeux au pistolet)##Crosshairs"), &crosshairs, names, 4)) {
 +            SetSetting(config, "Crosshairs", crosshairs);
 +        }
 +        ImGui::Indent();
-+        ImGui::TextDisabled("La cible montrée là où l'on vise, au doigt ou à la souris.");
++        ImGui::TextDisabled("%s", TR("Where the gun aims, with a finger or a mouse.", "La cible montrée là où l'on vise, au doigt ou à la souris."));
 +        ImGui::Unindent();
 +    }
 +
-+    ImGui::SeparatorText("Son");
-+    EssentialSlider(config, "SoundVolume", "Effets sonores", 0, 200, "Le volume des bruitages et des voix.");
-+    EssentialSlider(config, "MusicVolume", "Musique", 0, 200, "Le volume de la musique.");
++    ImGui::SeparatorText(TR("Sound", "Son"));
++    EssentialSlider(config, "SoundVolume", TR("Sound effects##SoundVolume", "Effets sonores##SoundVolume"), 0, 200, TR("The volume of the sounds and the voices.", "Le volume des bruitages et des voix."));
++    EssentialSlider(config, "MusicVolume", TR("Music##MusicVolume", "Musique##MusicVolume"), 0, 200, TR("The volume of the music.", "Le volume de la musique."));
 +
-+    ImGui::SeparatorText("Vitesse");
-+    EssentialCheckbox(config, "ShowFrameRate", "Mesurer la vitesse",
-+        "Le nombre d'images par seconde écrit dans Supermodel.log toutes les 5 s.");
++    ImGui::SeparatorText(TR("Speed", "Vitesse"));
++    EssentialCheckbox(config, "ShowFrameRate", TR("Measure the speed##ShowFrameRate", "Mesurer la vitesse##ShowFrameRate"),
++        TR("The frames per second written in Supermodel.log every 5 s.", "Le nombre d'images par seconde écrit dans Supermodel.log toutes les 5 s."));
 +    {
 +        unsigned mhz = config["PowerPCFrequency"].ValueAs<unsigned>();
 +        bool automatic = mhz == 0;
-+        if (ImGui::Checkbox("Processeur à sa vitesse d'origine (recommandé)", &automatic)) {
++        if (ImGui::Checkbox(TR("Processor at its original speed (recommended)##PowerPC", "Processeur à sa vitesse d'origine (recommandé)##PowerPC"), &automatic)) {
 +            mhz = automatic ? 0u : 100u;
 +            SetSetting(config, "PowerPCFrequency", mhz);
 +        }
 +        ImGui::Indent();
 +        if (automatic)
-+            ImGui::TextDisabled("Comme sur la borne.");
++            ImGui::TextDisabled("%s", TR("As on the cabinet.", "Comme sur la borne."));
 +        else
-+            ImGui::TextDisabled("Réglé à la main (onglet Émulation) : %u MHz.", mhz);
++            ImGui::TextDisabled(TR("Set by hand (Core tab): %u MHz.", "Réglé à la main (onglet Émulation) : %u MHz."), mhz);
 +        ImGui::Unindent();
 +    }
 +}
@@ -946,7 +957,7 @@ index f241f2e..60b74e1 100644
  static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::map<std::string, Game>& games, const std::set<std::string>& ownedZips, int& selectedGameIndex, bool& exit, bool& saveSettings, SDL_Window* window, std::shared_ptr<CInputs>& inputs, KeyBindState& kb, CalibrationState& cal, bool closeRequested, bool& exitPromptOpen, PerGameState& perGame)
  {
      ImVec4 clear_color = ImVec4(0.0f, 0.5f, 192/255.f, 1.00f);
-@@ -1165,25 +1346,28 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+@@ -1165,25 +1357,28 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
                  ownedCount++;
              }
          }
@@ -961,7 +972,7 @@ index f241f2e..60b74e1 100644
 -        ImGui::TextDisabled("(%zu of %zu supported games in the ROM folder)", ownedCount, games.size());
 +        ImGui::TextDisabled(TR("(%zu of %zu supported games in the ROM folder)", "(%zu sur %zu jeux trouvés dans ROMs)"), ownedCount, games.size());
 +#ifdef SUPERMODEL_MOBILE
-+        ImGui::TextDisabled("Touchez un jeu puis Jouer, ou touchez-le deux fois. Glissez pour faire défiler.");
++        ImGui::TextDisabled("%s", TR("Touch a game then Play, or touch it twice. Drag to scroll.", "Touchez un jeu puis Jouer, ou touchez-le deux fois. Glissez pour faire défiler."));
 +#endif
      }
  
@@ -981,13 +992,13 @@ index f241f2e..60b74e1 100644
  
          ImGui::TableHeadersRow();
  
-@@ -1246,41 +1430,50 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+@@ -1246,41 +1441,50 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
  
      // draw the tabbed options
      if (ImGui::BeginTabBar("MyTabBar", ImGuiTabBarFlags_FittingPolicyResizeDown)) {
 -        if (ImGui::BeginTabItem("Core")) {
 +#ifdef SUPERMODEL_MOBILE
-+        if (ImGui::BeginTabItem("Essentiel")) {
++        if (ImGui::BeginTabItem(TR("Essentials##Essentiel", "Essentiel"))) {
 +            DrawEssentials(config);
 +            ImGui::EndTabItem();
 +            inputs = nullptr;
@@ -1037,7 +1048,7 @@ index f241f2e..60b74e1 100644
          if (ImGui::BeginTabItem("ForceFeedback")) {
              UpdateTempValues(config, "ForceFeedback", true);
              CreateControls(config, "ForceFeedback");
-@@ -1288,7 +1481,8 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+@@ -1288,7 +1492,8 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
              ImGui::EndTabItem();
              inputs = nullptr;
          }
@@ -1047,7 +1058,7 @@ index f241f2e..60b74e1 100644
              UpdateTempValues(config, "Sensitivity", true);
              CreateControls(config, "Sensitivity");
              UpdateTempValues(config, "Sensitivity", false);
-@@ -1305,7 +1499,7 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
+@@ -1305,7 +1510,7 @@ static void GUI(const ImGuiIO& io, Util::Config::Node& globalConfig, const std::
              ImGui::EndTabItem();
              inputs = nullptr;
          }
@@ -1056,7 +1067,7 @@ index f241f2e..60b74e1 100644
  
              if (inputs == nullptr) {
                  inputs = GetInputSystem(config, window);
-@@ -1386,6 +1580,9 @@ static float GetDPIScale()
+@@ -1386,6 +1591,9 @@ static float GetDPIScale()
          return 1.0f;
      }
      return (std::max)(1.0f, ddpi / 96.0f);
@@ -1066,7 +1077,7 @@ index f241f2e..60b74e1 100644
  #else
      return 1.0f;
  #endif
-@@ -1411,15 +1608,29 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1411,18 +1619,35 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      }
  
      // Set OpenGL attributes
@@ -1096,7 +1107,13 @@ index f241f2e..60b74e1 100644
  
      // Create SDL window
      s_uiScale = GetDPIScale();
-@@ -1459,12 +1670,23 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
++#ifdef SUPERMODEL_MOBILE
++    s_french = DeviceInFrench();
++#endif
+     SDL_Window* window = SDL_CreateWindow("SuperSetup", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, int(950 * s_uiScale), int(600 * s_uiScale), window_flags);
+     if (!window) {
+         std::cerr << "Window could not be created! Error: " << SDL_GetError() << std::endl;
+@@ -1459,12 +1684,23 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
      //ImGui::StyleColorsClassic();
  
      ImGuiStyle& style = ImGui::GetStyle();
@@ -1120,7 +1137,7 @@ index f241f2e..60b74e1 100644
  
      std::string xmlFile = config["GameXMLFile"].ValueAs<std::string>();
      GameLoader loader(xmlFile);
-@@ -1494,6 +1716,9 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
+@@ -1494,6 +1730,9 @@ std::vector<std::string> RunGUI(const std::string& configPath, const Util::Confi
  
          while (SDL_PollEvent(&event)) {
  
@@ -1130,7 +1147,7 @@ index f241f2e..60b74e1 100644
              ImGui_ImplSDL2_ProcessEvent(&event);
  
              if (event.type == SDL_QUIT) {
-@@ -1550,7 +1775,13 @@ exitNoSave:
+@@ -1550,7 +1789,13 @@ exitNoSave:
  
      SDL_GL_DeleteContext(glContext);
      SDL_DestroyWindow(window);

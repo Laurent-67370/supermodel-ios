@@ -105,6 +105,17 @@ extern "C" int SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode);
 
 namespace
 {
+	// The device in French: the menu in French; in English otherwise
+	bool French()
+	{
+		return [[[NSLocale preferredLanguages] firstObject] hasPrefix:@"fr"];
+	}
+
+	NSString *T(NSString *english, NSString *french)
+	{
+		return French() ? french : english;
+	}
+
 	// Pressed now (with a modifier, or none), released a moment later
 	void Press(SDL_Scancode key, SDL_Scancode modifier = SDL_SCANCODE_UNKNOWN)
 	{
@@ -158,13 +169,13 @@ namespace
 	                                                       preferredStyle:UIAlertControllerStyleActionSheet];
 	struct Item { NSString *title; SDL_Scancode key, modifier; };
 	const Item items[] = {
-		{ @"Sauvegarder l'état", SDL_SCANCODE_F5, SDL_SCANCODE_UNKNOWN },
-		{ @"Charger l'état", SDL_SCANCODE_F7, SDL_SCANCODE_UNKNOWN },
-		{ @"Changer d'emplacement de sauvegarde", SDL_SCANCODE_F6, SDL_SCANCODE_UNKNOWN },
-		{ @"Pause / reprendre", SDL_SCANCODE_P, SDL_SCANCODE_LALT },
-		{ @"Redémarrer le jeu", SDL_SCANCODE_R, SDL_SCANCODE_LALT },
-		{ @"Bouton Test (menu de la borne)", SDL_SCANCODE_6, SDL_SCANCODE_UNKNOWN },
-		{ @"Bouton Service", SDL_SCANCODE_5, SDL_SCANCODE_UNKNOWN },
+		{ T(@"Save state", @"Sauvegarder l'état"), SDL_SCANCODE_F5, SDL_SCANCODE_UNKNOWN },
+		{ T(@"Load state", @"Charger l'état"), SDL_SCANCODE_F7, SDL_SCANCODE_UNKNOWN },
+		{ T(@"Change save slot", @"Changer d'emplacement de sauvegarde"), SDL_SCANCODE_F6, SDL_SCANCODE_UNKNOWN },
+		{ T(@"Pause / resume", @"Pause / reprendre"), SDL_SCANCODE_P, SDL_SCANCODE_LALT },
+		{ T(@"Reset the game", @"Redémarrer le jeu"), SDL_SCANCODE_R, SDL_SCANCODE_LALT },
+		{ T(@"Test button (the cabinet's menu)", @"Bouton Test (menu de la borne)"), SDL_SCANCODE_6, SDL_SCANCODE_UNKNOWN },
+		{ T(@"Service button", @"Bouton Service"), SDL_SCANCODE_5, SDL_SCANCODE_UNKNOWN },
 	};
 	for (const Item &item : items)
 	{
@@ -174,10 +185,10 @@ namespace
 		                                       handler:^(UIAlertAction *) { Press(key, modifier); }]];
 	}
 	// iOS has no way back for an app that quits: it is opened again
-	[menu addAction:[UIAlertAction actionWithTitle:@"Quitter (rouvrir l'app pour la liste des jeux)"
+	[menu addAction:[UIAlertAction actionWithTitle:T(@"Quit (open the app again for the game list)", @"Quitter (rouvrir l'app pour la liste des jeux)")
 	                                         style:UIAlertActionStyleDestructive
 	                                       handler:^(UIAlertAction *) { Press(SDL_SCANCODE_ESCAPE); }]];
-	[menu addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
+	[menu addAction:[UIAlertAction actionWithTitle:T(@"Cancel", @"Annuler") style:UIAlertActionStyleCancel handler:nil]];
 	// On iPad, the list comes out of the button
 	menu.popoverPresentationController.sourceView = sender;
 	menu.popoverPresentationController.sourceRect = sender.bounds;
